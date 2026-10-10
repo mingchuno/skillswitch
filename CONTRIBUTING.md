@@ -74,12 +74,12 @@ This is the most common contribution. Steps:
    - `isInstalled()` — detect the CLI (e.g. check for its config dir)
    - `scanSkills()` — return `AdapterSkill[]`
    - `disableSkill(name)` / `enableSkill(name)`
-2. Reuse `scanDirSkills`, `disableDirSkill`, `enableDirSkill`, `findSkillDir` from `src/adapters/helpers.ts` if the CLI stores skills as one directory per skill (most do) — see `src/adapters/codex.ts` for the minimal example.
+2. Reuse `scanDirSkills`, `disableDirSkill`, `enableDirSkill`, `findSkillDir` from `src/adapters/helpers.ts` if the CLI stores skills as one directory per skill (most do) — see `src/adapters/gemini.ts` for an example. Codex uses its native TOML configuration instead of moving folders.
 3. Register the adapter in `src/adapters/index.ts` (`ADAPTERS` map).
 4. Add `tests/<cli>.test.ts` covering scan, disable, enable, and `isInstalled` against a temp directory.
 5. Add the CLI to the "Supported CLIs" table in `README.md`.
 
-Look at `src/adapters/claude.ts` if the target CLI has a plugin/blocklist system in addition to standalone skill files; otherwise `codex.ts` or `gemini.ts` are simpler templates.
+Look at `src/adapters/claude.ts` if the target CLI has a plugin/blocklist system in addition to standalone skill files; otherwise `gemini.ts` is a simpler template.
 
 ## PR expectations
 

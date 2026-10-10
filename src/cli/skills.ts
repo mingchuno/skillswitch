@@ -115,13 +115,24 @@ export function createSkillHandlers(runtime: Pick<CliRuntime, 'terminal' | 'adap
       const adapter = adapters.get(cliTarget);
       const skills = adapter.scanSkills();
       const { active, disabled, total } = countSkills(skills);
+      const profileState = adapter.profiles
+        ? { activeProfile: readProfileStore(adapter.profiles.directory).active }
+        : {};
       if (opts.json) {
         terminal.write(
-          JSON.stringify({ cli: adapter.displayName, active, disabled, total }, null, 2) + '\n',
+          JSON.stringify(
+            { cli: adapter.displayName, ...profileState, active, disabled, total },
+            null,
+            2,
+          ) + '\n',
         );
         return;
       }
       terminal.log(`CLI            : ${adapter.displayName}`);
+      if (adapter.profiles) {
+        terminal.log(`Active profile : ${profileState.activeProfile ?? 'none'}`);
+        terminal.log(`Scope: ${adapter.profiles.scope}`);
+      }
       terminal.log(`Enabled skills : ${active}`);
       terminal.log(`Disabled skills: ${disabled}`);
       terminal.log(`Total          : ${total}`);
@@ -186,6 +197,9 @@ export function createSkillHandlers(runtime: Pick<CliRuntime, 'terminal' | 'adap
         return;
       }
     }
+    adapter.validateSkillChanges?.(
+      new Map(matches.map((skill) => [skill.name, transition.fromStatus === 'disabled'])),
+    );
     for (const skill of matches) {
       if (!opts.dryRun) transition.apply(adapter, skill.name);
       if (!opts.quiet) {
@@ -195,6 +209,9 @@ export function createSkillHandlers(runtime: Pick<CliRuntime, 'terminal' | 'adap
             : `${transition.past}: ${skill.name}`,
         );
       }
+    }
+    if (context.target === 'codex' && !opts.dryRun && !opts.quiet) {
+      terminal.log('Restart Codex app / CLI to apply configuration changes.');
     }
   }
 

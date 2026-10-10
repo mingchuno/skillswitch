@@ -11,6 +11,12 @@ importers:
       commander:
         specifier: ^12.1.0
         version: 12.1.0
+      smol-toml:
+        specifier: ^1.9.1
+        version: 1.9.1
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
     devDependencies:
       '@biomejs/biome':
         specifier: 2.5.15
@@ -23,7 +29,7 @@ importers:
         version: 4.1.11(vitest@4.1.11)
       tsup:
         specifier: ^8.0.0
-        version: 8.5.1(postcss@8.5.28)(tsx@4.22.0)(typescript@5.9.3)
+        version: 8.5.1(postcss@8.5.28)(tsx@4.22.0)(typescript@5.9.3)(yaml@2.9.1)
       tsx:
         specifier: 4.22.0
         version: 4.22.0
@@ -32,10 +38,10 @@ importers:
         version: 5.9.3
       vite:
         specifier: 6.4.3
-        version: 6.4.3(@types/node@20.19.41)(tsx@4.22.0)
+        version: 6.4.3(@types/node@20.19.41)(tsx@4.22.0)(yaml@2.9.1)
       vitest:
         specifier: 4.1.11
-        version: 4.1.11(@types/node@20.19.41)(@vitest/coverage-v8@4.1.11)(vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0))
+        version: 4.1.11(@types/node@20.19.41)(@vitest/coverage-v8@4.1.11)(vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0)(yaml@2.9.1))
 
 packages:
 
@@ -1003,6 +1009,10 @@ packages:
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
 
+  smol-toml@1.9.1:
+    resolution: {integrity: sha512-j7WyPdf0CJoutMzMoPLF/bVXHtKZIT9Rb4eGeEbWw8X2t5oirjPgpL+OpaENZrILYaXqYwnVH+qgUwVbl+pUJQ==}
+    engines: {node: '>= 18'}
+
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
@@ -1177,6 +1187,11 @@ packages:
   why-is-node-running@2.3.0:
     resolution: {integrity: sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==}
     engines: {node: '>=8'}
+    hasBin: true
+
+  yaml@2.9.1:
+    resolution: {integrity: sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==}
+    engines: {node: '>= 14.6'}
     hasBin: true
 
 snapshots:
@@ -1581,7 +1596,7 @@ snapshots:
       obug: 2.2.1
       std-env: 4.3.0
       tinyrainbow: 3.2.0
-      vitest: 4.1.11(@types/node@20.19.41)(@vitest/coverage-v8@4.1.11)(vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0))
+      vitest: 4.1.11(@types/node@20.19.41)(@vitest/coverage-v8@4.1.11)(vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0)(yaml@2.9.1))
 
   '@vitest/expect@4.1.11':
     dependencies:
@@ -1592,13 +1607,13 @@ snapshots:
       chai: 6.3.0
       tinyrainbow: 3.2.0
 
-  '@vitest/mocker@4.1.11(vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0))':
+  '@vitest/mocker@4.1.11(vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0)(yaml@2.9.1))':
     dependencies:
       '@vitest/spy': 4.1.11
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 6.4.3(@types/node@20.19.41)(tsx@4.22.0)
+      vite: 6.4.3(@types/node@20.19.41)(tsx@4.22.0)(yaml@2.9.1)
 
   '@vitest/pretty-format@4.1.11':
     dependencies:
@@ -1847,12 +1862,13 @@ snapshots:
       mlly: 1.8.2
       pathe: 2.0.3
 
-  postcss-load-config@6.0.1(postcss@8.5.28)(tsx@4.22.0):
+  postcss-load-config@6.0.1(postcss@8.5.28)(tsx@4.22.0)(yaml@2.9.1):
     dependencies:
       lilconfig: 3.1.3
     optionalDependencies:
       postcss: 8.5.28
       tsx: 4.22.0
+      yaml: 2.9.1
 
   postcss@8.5.28:
     dependencies:
@@ -1898,6 +1914,8 @@ snapshots:
   semver@7.8.5: {}
 
   siginfo@2.0.0: {}
+
+  smol-toml@1.9.1: {}
 
   source-map-js@1.2.1: {}
 
@@ -1946,7 +1964,7 @@ snapshots:
 
   ts-interface-checker@0.1.13: {}
 
-  tsup@8.5.1(postcss@8.5.28)(tsx@4.22.0)(typescript@5.9.3):
+  tsup@8.5.1(postcss@8.5.28)(tsx@4.22.0)(typescript@5.9.3)(yaml@2.9.1):
     dependencies:
       bundle-require: 5.1.0(esbuild@0.27.7)
       cac: 6.7.14
@@ -1957,7 +1975,7 @@ snapshots:
       fix-dts-default-cjs-exports: 1.0.1
       joycon: 3.1.1
       picocolors: 1.1.1
-      postcss-load-config: 6.0.1(postcss@8.5.28)(tsx@4.22.0)
+      postcss-load-config: 6.0.1(postcss@8.5.28)(tsx@4.22.0)(yaml@2.9.1)
       resolve-from: 5.0.0
       rollup: 4.60.4
       source-map: 0.7.6
@@ -1986,7 +2004,7 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0):
+  vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0)(yaml@2.9.1):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.4)
@@ -1998,11 +2016,12 @@ snapshots:
       '@types/node': 20.19.41
       fsevents: 2.3.3
       tsx: 4.22.0
+      yaml: 2.9.1
 
-  vitest@4.1.11(@types/node@20.19.41)(@vitest/coverage-v8@4.1.11)(vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0)):
+  vitest@4.1.11(@types/node@20.19.41)(@vitest/coverage-v8@4.1.11)(vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0)(yaml@2.9.1)):
     dependencies:
       '@vitest/expect': 4.1.11
-      '@vitest/mocker': 4.1.11(vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0))
+      '@vitest/mocker': 4.1.11(vite@6.4.3(@types/node@20.19.41)(tsx@4.22.0)(yaml@2.9.1))
       '@vitest/pretty-format': 4.1.11
       '@vitest/runner': 4.1.11
       '@vitest/snapshot': 4.1.11
@@ -2019,7 +2038,7 @@ snapshots:
       tinyexec: 1.3.1
       tinyglobby: 0.2.16
       tinyrainbow: 3.2.0
-      vite: 6.4.3(@types/node@20.19.41)(tsx@4.22.0)
+      vite: 6.4.3(@types/node@20.19.41)(tsx@4.22.0)(yaml@2.9.1)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 20.19.41
@@ -2031,3 +2050,5 @@ snapshots:
     dependencies:
       siginfo: 2.0.0
       stackback: 0.0.2
+
+  yaml@2.9.1: {}

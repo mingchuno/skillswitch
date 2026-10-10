@@ -6,9 +6,16 @@ import * as path from 'node:path';
 export function writeAtomicSync(file: string, data: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${randomUUID()}.tmp`;
-  const fd = fs.openSync(tmp, 'wx');
+  let mode = 0o600;
+  try {
+    mode = fs.statSync(file).mode & 0o777;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  const fd = fs.openSync(tmp, 'wx', mode);
   try {
     try {
+      fs.fchmodSync(fd, mode);
       fs.writeFileSync(fd, data);
     } finally {
       fs.closeSync(fd);

@@ -383,3 +383,11 @@ export async function activateProfile(
 
   return { enabled, disabled, pluginsBlocked };
 }
+
+export function recordProfileActivation(name: string, directory: string): void {
+  const store = readProfileStore(directory);
+  if (!store.profiles[name]) throw new Error(`Profile "${name}" does not exist`);
+  store.previous = store.active;
+  store.active = name;
+  writeProfileStore(store, directory);
+}

@@ -32,7 +32,14 @@ it.each([['profile', 'list'], ['catalog'], ['audit']])(
     try {
       const result = spawnSync(
         process.execPath,
-        ['dist/cli.js', '--claude-dir', dir, '--for', 'codex', ...command],
+        [
+          'dist/cli.js',
+          '--claude-dir',
+          dir,
+          '--for',
+          command[0] === 'profile' ? 'gemini' : 'codex',
+          ...command,
+        ],
         { encoding: 'utf8' },
       );
       expect(result.status).not.toBe(0);
@@ -172,6 +179,7 @@ it.each([
       const env = {
         ...process.env,
         HOME: home,
+        CODEX_HOME: path.join(home, '.codex'),
         SKILLSWITCH_CLAUDE_DIR: path.join(home, '.claude'),
       };
       const run = (...args: string[]) =>
@@ -185,7 +193,7 @@ it.each([
         expect.objectContaining({ name: 'ship', status: 'active' }),
       ]);
       expect(run('disable', 'ship', '--exact').status).toBe(0);
-      expect(fs.existsSync(file)).toBe(false);
+      expect(fs.existsSync(file)).toBe(cli === 'codex');
       expect(run('enable', 'ship', '--exact').status).toBe(0);
       expect(fs.readFileSync(file, 'utf8')).toBe('# Ship\nShipping.');
     } finally {

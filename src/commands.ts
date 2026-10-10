@@ -33,7 +33,7 @@ export function createProgram(handlers: CommandHandlers, config: CommandConfig):
     if (
       actionCommand.name() === 'catalog' ||
       actionCommand.name() === 'audit' ||
-      actionCommand.parent?.name() === 'profile'
+      (actionCommand.parent?.name() === 'profile' && context().target !== 'codex')
     ) {
       handlers.inspection.requireClaude(context());
     }

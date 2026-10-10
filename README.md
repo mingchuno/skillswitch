@@ -45,13 +45,13 @@ Claude Code injects the name and description of every installed skill into every
 
 ### FAQ
 
-**Does Skillswitch delete my skills?** No. Standalone skills move to a `.disabled/` subfolder; plugin skills are turned off via Claude Code's own `blocklist.json`. Everything is reversible with `enable`.
+**Does Skillswitch delete my skills?** No. Claude and other filesystem-based targets move standalone skills to `.disabled/`; Codex uses native `config.toml` settings without moving shared skill folders. Claude plugins use `blocklist.json`. Everything is reversible with `enable`.
 
-**Does it send my data anywhere?** No telemetry, no auth, no network. It only reads and moves local files.
+**Does it send my data anywhere?** No telemetry, no auth, no network. It only reads and updates local files.
 
 **Which CLIs does it support?** Claude Code, Gemini CLI, Codex CLI, Aider, Amp (Sourcegraph), and Factory Droid. Default target is Claude Code; use `--for <cli>` for the rest.
 
-**Profiles, catalog and audit currently support Claude Code only.** Other targets are rejected for these commands; list, search, status, disable and enable support the selected CLI.
+**Profiles support Claude Code and Codex app / CLI.** Catalog and audit support Claude Code only. List, search, status, disable and enable support all listed targets.
 
 **How do profiles work?** `skillswitch profile create dev` snapshots your current enabled set. `skillswitch profile use dev` activates it. `profile diff` and `--dry-run` show what changes before it happens.
 
@@ -71,7 +71,7 @@ pnpm dlx skillswitch <command>
 |---|---|---|
 | Claude Code | `--for claude` (default) | `~/.claude/skills/` + plugins |
 | Gemini CLI | `--for gemini` | `~/.gemini/skills/` + `~/.agents/skills/` |
-| Codex CLI | `--for codex` | `~/.agents/skills/` |
+| Codex app / CLI | `--for codex` | `~/.agents/skills/` |
 | Aider | `--for aider` | `~/.aider/skills/` (managed externally) |
 | Amp (Sourcegraph) | `--for amp` | `~/.config/amp/skills/` + `~/.agents/skills/` |
 | Factory Droid | `--for droid` | `~/.factory/droids/` + `~/.factory/commands/` |
@@ -145,12 +145,49 @@ skillswitch catalog                       # generates ~/.claude/SKILLS.md
 # Then in Claude: @~/.claude/SKILLS.md
 ```
 
+## Codex profiles
+
+```bash
+skillswitch --for codex profile create full
+skillswitch --for codex disable research --exact
+skillswitch --for codex profile create dev
+skillswitch --for codex profile use full --dry-run
+skillswitch --for codex profile use full
+# Restart Codex app / CLI after changing configuration.
+```
+
+Codex profiles manage immediate skill folders (including symlinks) in
+`~/.agents/skills`. They apply across Codex app and CLI using the same
+`CODEX_HOME`; each open chat does not have an independent selection.
+Repository, plugin, system, and legacy `~/.codex/skills` skills are outside this
+scope. Counts reflect the managed user folder and user configuration, not
+Codex's effective inventory after other configuration layers.
+
+Skill folder names identify profile entries; duplicate manifest names remain
+separate when they point to different files. Conflicting selections of aliases
+for the same file fail before writing. Existing name-based disable rules are
+preserved; enabling a skill blocked by such a rule requires removing that rule
+manually first. Missing profile skills also prevent activation; use
+`profile validate` to find them.
+
+Codex writes preserve unrelated TOML values, integer/float types, config symlinks,
+and file permissions. Serialization normalizes formatting and removes comments.
+The config update is atomic; updating the profile marker is a separate write.
+Concurrent edits or an I/O failure can leave the marker out of sync with the
+configuration. Entries combining `path` and `name` selectors are rejected as
+unsupported. Other tools sharing `~/.agents/skills` retain their skill folders.
+
+Skills parked by older versions in `~/.agents/skills/.disabled/` are still listed
+as disabled. Restore those folders to `~/.agents/skills/` before enabling them;
+Codex operations no longer move folders.
+
 ## How it works
 
 - **Standalone skills** (`~/.claude/skills/*.md`): disabled by moving to `.disabled/` subdirectory — always reversible, nothing deleted
 - **Plugin skills** (`~/.claude/plugins/`): disabled by writing to Claude Code's native `blocklist.json`
+- **Codex**: path-specific `[[skills.config]]` entries in `~/.codex/config.toml`; shared skill folders stay in place
 - **Other CLIs**: skill files moved to `.disabled/` subdirectory inside their skills directory
-- **Profiles** stored in `~/.claude/skillctl/profiles.json`
+- **Profiles** stored independently in `~/.claude/skillctl/profiles.json` and `$CODEX_HOME/skillctl/profiles.json` (default `~/.codex/skillctl/profiles.json`)
 
 Moves reject existing destinations, invalid names and symlinked `.disabled/`
 directories. Existing copies remain untouched. Corrupt or invalid profile and

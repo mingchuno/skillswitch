@@ -3,6 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ClaudeAdapter } from '../src/adapters/claude.js';
+import { CodexAdapter } from '../src/adapters/codex.js';
 import {
   disableDirSkill,
   disableFlatSkill,
@@ -32,7 +33,8 @@ let handlers: CommandHandlers;
 function createFixtureAdapter(cli: string): CliAdapter {
   if (cli === 'claude') return new ClaudeAdapter(dir);
   const skillsDir = path.join(dir, 'adapters', cli);
-  const directory = ['codex', 'gemini', 'amp'].includes(cli);
+  if (cli === 'codex') return new CodexAdapter(path.join(dir, 'codex'), skillsDir);
+  const directory = ['gemini', 'amp'].includes(cli);
   const displayNames: Record<string, string> = {
     codex: 'Codex CLI (OpenAI)',
     gemini: 'Gemini CLI',
@@ -203,7 +205,7 @@ it.each(['codex', 'gemini', 'amp', 'aider', 'droid'])(
     );
     expect(fs.existsSync(file)).toBe(true);
     await run('--for', cli, 'disable', 'ship', '--quiet');
-    expect(fs.existsSync(file)).toBe(false);
+    expect(fs.existsSync(file)).toBe(cli === 'codex');
     expect(JSON.parse(await run('--for', cli, 'list', '--disabled', '--json'))[0].status).toBe(
       'disabled',
     );
@@ -280,13 +282,17 @@ it.each([
     const directory = cli === 'codex';
     if (cli === 'claude' && direction === 'enable') fs.rmSync(path.join(dir, 'skills', 'plan.md'));
     const base =
-      direction === 'enable'
+      direction === 'enable' && cli !== 'codex'
         ? path.join(adapter.skillsDirs[0], '.disabled')
         : adapter.skillsDirs[0];
     for (const name of ['plan', 'plan-more']) {
       const file = directory ? path.join(base, name, 'SKILL.md') : path.join(base, `${name}.md`);
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, `# ${name}\nExact bytes.`);
+    }
+    if (cli === 'codex' && direction === 'enable') {
+      adapter.disableSkill('plan');
+      adapter.disableSkill('plan-more');
     }
     vi.mocked(terminal.confirm).mockResolvedValue(accepted);
     const result = await run('--for', cli, direction, 'plan');
@@ -358,8 +364,10 @@ it('uses configured directory defaults and explicit overrides without environmen
   expect(JSON.parse(output)).toEqual({ standalone: [], plugins: [] });
 });
 it('rejects unsupported targets using the injected terminal', async () => {
-  await expect(run('--for', 'codex', 'profile', 'list')).rejects.toThrow('CLI exit 1');
-  expect(errors).toBe('Error: profile, catalog and audit currently support only Claude.\n');
+  await expect(run('--for', 'gemini', 'profile', 'list')).rejects.toThrow('CLI exit 1');
+  expect(errors).toBe(
+    'Error: catalog and audit support only Claude; profiles support Claude and Codex.\n',
+  );
 });
 it('preserves forced deletion output for a dangling active profile and leaves its store intact', async () => {
   const file = path.join(dir, 'skillctl', 'profiles.json');
@@ -402,4 +410,115 @@ it('supplies the directory override only for the exact Claude target, preserving
   expect(runtime.adapters.get).toHaveBeenLastCalledWith('codex');
   await run('--for', 'CLAUDE', 'disable', 'missing');
   expect(runtime.adapters.get).toHaveBeenLastCalledWith('CLAUDE');
+});
+
+it('Codex profiles snapshot native state, preview without writes, and switch independently of Claude', async () => {
+  const adapter = runtime.adapters.get('codex');
+  for (const name of ['plan', 'ship']) {
+    const file = path.join(adapter.skillsDirs[0], name, 'SKILL.md');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, `---\nname: ${name}\ndescription: ${name} work\n---\n`);
+  }
+  await run('profile', 'create', 'dev');
+  await run('--for', 'codex', 'profile', 'create', 'full');
+  await run('--for', 'codex', 'disable', 'ship', '--exact');
+  expect(await run('--for', 'codex', 'profile', 'create', 'dev')).toContain('1 skills');
+  expect(JSON.parse(await run('--for', 'codex', 'profile', 'export', 'dev')).skills).toEqual([
+    'plan',
+  ]);
+  await run('--for', 'codex', 'enable', 'ship', '--exact');
+  const configFile = path.join(dir, 'codex', 'config.toml');
+  const before = fs.readFileSync(configFile, 'utf8');
+  expect(await run('--for', 'codex', 'profile', 'use', 'dev', '--dry-run')).toContain(
+    'Disable : ship',
+  );
+  expect(fs.readFileSync(configFile, 'utf8')).toBe(before);
+  expect(await run('--for', 'codex', 'profile', 'use', 'dev')).toContain('Restart Codex');
+  expect(JSON.parse(await run('--for', 'codex', 'status', '--json'))).toMatchObject({
+    activeProfile: 'dev',
+    active: 1,
+    disabled: 1,
+  });
+  expect(await run('--for', 'codex', 'profile', 'diff', 'dev')).toContain('no changes');
+  expect(await run('--for', 'codex', 'profile', 'validate', 'dev')).toContain('valid');
+  expect(JSON.parse(await run('profile', 'export', 'dev')).skills).toEqual(['plan']);
+  await run('--for', 'codex', 'profile', 'use', 'full');
+  expect(JSON.parse(await run('--for', 'codex', 'status', '--json'))).toMatchObject({
+    activeProfile: 'full',
+    active: 2,
+    disabled: 0,
+  });
+  expect(JSON.parse(await run('--for', 'codex', 'profile', 'list', '--json')).previous).toBe('dev');
+});
+
+it('Codex supports the profile lifecycle and leaves stores unchanged on invalid imports and missing skills', async () => {
+  const adapter = runtime.adapters.get('codex');
+  const file = path.join(adapter.skillsDirs[0], 'plan', 'SKILL.md');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, '---\nname: plan\ndescription: Planning\n---\n');
+  expect(await run('--for', 'codex', 'profile', 'list')).toContain('No profiles');
+  expect(await run('--for', 'codex', 'profile', 'show', 'missing')).toContain('not found');
+  expect(await run('--for', 'codex', 'profile', 'use', 'missing', '--dry-run')).toContain(
+    'not found',
+  );
+  await run('--for', 'codex', 'profile', 'create', 'dev');
+  await run('--for', 'codex', 'profile', 'copy', 'dev', 'copy');
+  await run('--for', 'codex', 'profile', 'rename', 'copy', 'renamed');
+  expect(await run('--for', 'codex', 'profile', 'show', 'renamed')).toContain('plan');
+  const exported = path.join(dir, 'codex-profile.json');
+  await run('--for', 'codex', 'profile', 'export', 'renamed', '--out', exported);
+  await run('--for', 'codex', 'profile', 'delete', 'renamed');
+  await run('--for', 'codex', 'profile', 'import', exported);
+  await run('--for', 'codex', 'profile', 'use', 'dev', '--quiet');
+  const storeFile = path.join(dir, 'codex', 'skillctl', 'profiles.json');
+  const before = fs.readFileSync(storeFile, 'utf8');
+  fs.writeFileSync(
+    exported,
+    JSON.stringify({ name: 'bad', skills: ['plan'], plugins: ['claude-plugin'] }),
+  );
+  await expect(run('--for', 'codex', 'profile', 'import', exported)).rejects.toThrow('CLI exit');
+  expect(fs.readFileSync(storeFile, 'utf8')).toBe(before);
+  fs.writeFileSync(exported, '{ malformed');
+  await expect(run('--for', 'codex', 'profile', 'import', exported)).rejects.toThrow('CLI exit');
+  fs.rmSync(file);
+  expect(await run('--for', 'codex', 'profile', 'validate', 'dev')).toContain('ghost');
+  await expect(run('--for', 'codex', 'profile', 'use', 'dev')).rejects.toThrow('CLI exit');
+  expect(fs.readFileSync(storeFile, 'utf8')).toBe(before);
+  expect(fs.existsSync(path.join(dir, 'codex', 'config.toml'))).toBe(false);
+  await run('--for', 'codex', 'profile', 'delete', 'dev', '--force');
+  expect(JSON.parse(await run('--for', 'codex', 'profile', 'list', '--json')).active).toBe(null);
+});
+
+it('Codex previews reject name-disabled skills that cannot be enabled without affecting other scopes', async () => {
+  const adapter = runtime.adapters.get('codex');
+  const file = path.join(adapter.skillsDirs[0], 'plan', 'SKILL.md');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, '---\nname: plan\ndescription: Planning\n---\n');
+  await run('--for', 'codex', 'profile', 'create', 'dev');
+  const config = path.join(dir, 'codex', 'config.toml');
+  const source = '[[skills.config]]\nname = "plan"\nenabled = false\n';
+  fs.writeFileSync(config, source);
+  await expect(run('--for', 'codex', 'profile', 'use', 'dev', '--dry-run')).rejects.toThrow(
+    'CLI exit',
+  );
+  expect(fs.readFileSync(config, 'utf8')).toBe(source);
+  expect(JSON.parse(await run('--for', 'codex', 'profile', 'list', '--json')).active).toBe(null);
+});
+
+it('Codex individual toggle previews reject blocked and parked skills without writing', async () => {
+  const adapter = runtime.adapters.get('codex');
+  const file = path.join(adapter.skillsDirs[0], 'plan', 'SKILL.md');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, '---\nname: plan\ndescription: Planning\n---\n');
+  const config = path.join(dir, 'codex', 'config.toml');
+  fs.mkdirSync(path.dirname(config), { recursive: true });
+  const source = '[[skills.config]]\nname = "plan"\nenabled = false\n';
+  fs.writeFileSync(config, source);
+  await expect(run('--for', 'codex', 'enable', 'plan', '--dry-run')).rejects.toThrow('CLI exit');
+  expect(fs.readFileSync(config, 'utf8')).toBe(source);
+  const parked = path.join(adapter.skillsDirs[0], '.disabled', 'old', 'SKILL.md');
+  fs.mkdirSync(path.dirname(parked), { recursive: true });
+  fs.writeFileSync(parked, '# Old\n');
+  await expect(run('--for', 'codex', 'enable', 'old', '--dry-run')).rejects.toThrow('CLI exit');
+  expect(fs.existsSync(parked)).toBe(true);
 });
