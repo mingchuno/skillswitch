@@ -1,16 +1,37 @@
+import fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import { disableSkill, enableSkill, enableAll } from '../src/disable.js';
-import { disableFlatSkill, enableFlatSkill, disableDirSkill, enableDirSkill, scanDirSkills } from '../src/adapters/helpers.js';
+import {
+  disableDirSkill,
+  disableFlatSkill,
+  enableDirSkill,
+  enableFlatSkill,
+  scanDirSkills,
+} from '../src/adapters/helpers.js';
+import { disableSkill, enableAll, enableSkill } from '../src/disable.js';
 
 let tmpDir: string;
 let skillsDir: string;
 const movers = [
-  { label: 'Claude', directory: false, disable: (name: string) => disableSkill(name, tmpDir), enable: (name: string) => enableSkill(name, tmpDir) },
-  { label: 'flat adapter', directory: false, disable: (name: string) => disableFlatSkill(name, skillsDir), enable: (name: string) => enableFlatSkill(name, skillsDir) },
-  { label: 'directory adapter', directory: true, disable: (name: string) => disableDirSkill(name, skillsDir), enable: (name: string) => enableDirSkill(name, skillsDir) },
+  {
+    label: 'Claude',
+    directory: false,
+    disable: (name: string) => disableSkill(name, tmpDir),
+    enable: (name: string) => enableSkill(name, tmpDir),
+  },
+  {
+    label: 'flat adapter',
+    directory: false,
+    disable: (name: string) => disableFlatSkill(name, skillsDir),
+    enable: (name: string) => enableFlatSkill(name, skillsDir),
+  },
+  {
+    label: 'directory adapter',
+    directory: true,
+    disable: (name: string) => disableDirSkill(name, skillsDir),
+    enable: (name: string) => enableDirSkill(name, skillsDir),
+  },
 ];
 
 beforeEach(() => {
@@ -62,7 +83,15 @@ for (const mover of movers) {
 
       it(`${direction} rejects invalid names before any rename`, () => {
         const rename = vi.spyOn(fs, 'renameSync');
-        for (const name of ['', '.', '..', '../outside', 'folder/plan', 'folder\\plan', '.disabled']) {
+        for (const name of [
+          '',
+          '.',
+          '..',
+          '../outside',
+          'folder/plan',
+          'folder\\plan',
+          '.disabled',
+        ]) {
           expect(() => mover[direction](name)).toThrow(/name/i);
         }
         expect(rename).toHaveBeenCalledTimes(0);
@@ -80,7 +109,9 @@ for (const mover of movers) {
         expect(() => mover[direction]('plan')).toThrow(/disabled/i);
         expect(rename).toHaveBeenCalledTimes(0);
         expect(readSkill(src, mover.directory)).toBe('source bytes');
-        expect(fs.readdirSync(outside)).toEqual(direction === 'enable' ? [mover.directory ? 'plan' : 'plan.md'] : []);
+        expect(fs.readdirSync(outside)).toEqual(
+          direction === 'enable' ? [mover.directory ? 'plan' : 'plan.md'] : [],
+        );
       });
     }
 
@@ -130,6 +161,7 @@ it('directory scanning includes only directories with SKILL.md', () => {
   writeSkill(path.join(skillsDir, 'plan'), true, '# Plan\nPlanning.');
   writeSkill(path.join(skillsDir, '.disabled', 'ship'), true, '# Ship\nShipping.');
   expect(scanDirSkills(skillsDir).map(({ name, status }) => ({ name, status }))).toEqual([
-    { name: 'plan', status: 'active' }, { name: 'ship', status: 'disabled' },
+    { name: 'plan', status: 'active' },
+    { name: 'ship', status: 'disabled' },
   ]);
 });

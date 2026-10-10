@@ -5,20 +5,39 @@
 ```bash
 git clone https://github.com/nikolas-sapa/skillswitch.git
 cd skillswitch
-npm install
-npm run dev -- status        # run the CLI from source (tsx, no build)
-npm run build                # bundle to dist/ via tsup
-npm test                     # run the vitest suite
-npm run test:watch           # watch mode
+corepack enable
+pnpm install --frozen-lockfile
+pnpm dev status       # run the CLI from source (tsx, no build)
+pnpm build            # bundle to dist/ via tsup
+pnpm test             # run the vitest suite
+pnpm test:watch       # watch mode
 ```
 
-Requires Node >= 18.
+Development requires Node >= 22 and the pnpm version pinned in `package.json`.
+The published CLI retains its Node >= 18 runtime requirement.
+
+## Checks and coverage
+
+Run `pnpm check` for Biome formatting, linting, and import checks; use
+`pnpm check:fix` to apply safe fixes. Run `pnpm typecheck` separately.
+
+`pnpm test:coverage` reports all executable source modules, including modules
+not imported by tests. Minimum coverage is 85% for statements, functions, and
+lines, and 80% for branches. Open `coverage/index.html` for details; LCOV and
+Cobertura reports are also generated. Type-only interfaces are excluded.
+CLI subprocess tests verify the built artifact but do not contribute to
+in-process source coverage.
+
+GitLab CI installs from the frozen lockfile, runs all checks, and uploads
+JUnit results and coverage reports (including on test failures).
+`pnpm test:ci` runs the same test reporting command locally.
 
 ## Repo layout
 
 ```
 src/
-  cli.ts            # commander entrypoint, command wiring
+  cli.ts            # executable entrypoint
+  commands.ts       # commander construction and command handlers
   adapters/          # one file per supported CLI
     types.ts         # CliAdapter interface all adapters implement
     helpers.ts        # shared dir-scanning / enable-disable helpers
@@ -50,7 +69,7 @@ Look at `src/adapters/claude.ts` if the target CLI has a plugin/blocklist system
 
 ## PR expectations
 
-- `npm test` and `npm run build` pass.
+- `pnpm check`, `pnpm typecheck`, `pnpm test:coverage`, and `pnpm build` pass.
 - One logical change per PR; keep unrelated formatting out of the diff.
 - New adapters or commands include tests.
 - No new dependencies without discussion first — this is a local-only, no-telemetry tool by design.

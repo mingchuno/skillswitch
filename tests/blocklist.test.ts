@@ -1,9 +1,10 @@
 // tests/blocklist.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
+import * as os from 'node:os';
+import * as path from 'node:path';
 import * as fs from 'fs/promises';
-import * as path from 'path';
-import * as os from 'os';
-import { readBlocklist, blockPlugin, unblockPlugin, setBlockedPlugins } from '../src/blocklist.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { blockPlugin, readBlocklist, setBlockedPlugins, unblockPlugin } from '../src/blocklist.js';
 import type { BlocklistFile } from '../src/types.js';
 
 let tmpDir: string;
@@ -28,7 +29,9 @@ describe('readBlocklist', () => {
     await fs.mkdir(pluginsDir, { recursive: true });
     const data: BlocklistFile = {
       fetchedAt: '2024-01-01T00:00:00.000Z',
-      plugins: [{ plugin: 'myplugin@mkt', added_at: '2024-01-01T00:00:00.000Z', reason: 'security' }],
+      plugins: [
+        { plugin: 'myplugin@mkt', added_at: '2024-01-01T00:00:00.000Z', reason: 'security' },
+      ],
     };
     await fs.writeFile(path.join(pluginsDir, 'blocklist.json'), JSON.stringify(data));
 
@@ -97,8 +100,8 @@ describe('setBlockedPlugins', () => {
     await setBlockedPlugins(['new1@mkt', 'new2@mkt'], 'bulk', tmpDir);
     const result = await readBlocklist(tmpDir);
     expect(result.plugins).toHaveLength(2);
-    expect(result.plugins.map(p => p.plugin)).toContain('new1@mkt');
-    expect(result.plugins.map(p => p.plugin)).toContain('new2@mkt');
-    expect(result.plugins.map(p => p.plugin)).not.toContain('old@mkt');
+    expect(result.plugins.map((p) => p.plugin)).toContain('new1@mkt');
+    expect(result.plugins.map((p) => p.plugin)).toContain('new2@mkt');
+    expect(result.plugins.map((p) => p.plugin)).not.toContain('old@mkt');
   });
 });

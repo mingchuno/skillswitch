@@ -1,9 +1,10 @@
 // tests/scanner.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { extractDescription, scanStandaloneSkills, scanPlugins } from '../src/scanner.js';
+
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { extractDescription, scanPlugins, scanStandaloneSkills } from '../src/scanner.js';
 
 describe('extractDescription', () => {
   it('returns first non-empty, non-heading line', () => {
@@ -11,7 +12,9 @@ describe('extractDescription', () => {
   });
 
   it('skips YAML frontmatter delimited by ---', () => {
-    expect(extractDescription('---\nname: foo\n---\n# Title\n\nActual description.')).toBe('Actual description.');
+    expect(extractDescription('---\nname: foo\n---\n# Title\n\nActual description.')).toBe(
+      'Actual description.',
+    );
   });
 
   it('returns empty string when only headings exist', () => {
@@ -30,15 +33,25 @@ describe('scanStandaloneSkills', () => {
   afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
   it('returns active skills from skills/', () => {
-    fs.writeFileSync(path.join(tmpDir, 'skills', 'plan.md'), '# Plan\n\nDesign implementation plans.');
+    fs.writeFileSync(
+      path.join(tmpDir, 'skills', 'plan.md'),
+      '# Plan\n\nDesign implementation plans.',
+    );
     const result = scanStandaloneSkills(tmpDir);
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ name: 'plan', status: 'active', description: 'Design implementation plans.' });
+    expect(result[0]).toMatchObject({
+      name: 'plan',
+      status: 'active',
+      description: 'Design implementation plans.',
+    });
   });
 
   it('returns disabled skills from skills/.disabled/', () => {
     fs.mkdirSync(path.join(tmpDir, 'skills', '.disabled'));
-    fs.writeFileSync(path.join(tmpDir, 'skills', '.disabled', 'ads.md'), '# Ads\n\nPaid advertising.');
+    fs.writeFileSync(
+      path.join(tmpDir, 'skills', '.disabled', 'ads.md'),
+      '# Ads\n\nPaid advertising.',
+    );
     const result = scanStandaloneSkills(tmpDir);
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ name: 'ads', status: 'disabled' });
@@ -52,11 +65,14 @@ describe('scanStandaloneSkills', () => {
   it('returns both active and disabled skills when mixed', () => {
     fs.mkdirSync(path.join(tmpDir, 'skills', '.disabled'), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, 'skills', 'plan.md'), '# Plan\n\nActive skill.');
-    fs.writeFileSync(path.join(tmpDir, 'skills', '.disabled', 'ads.md'), '# Ads\n\nDisabled skill.');
+    fs.writeFileSync(
+      path.join(tmpDir, 'skills', '.disabled', 'ads.md'),
+      '# Ads\n\nDisabled skill.',
+    );
     const result = scanStandaloneSkills(tmpDir);
     expect(result).toHaveLength(2);
-    const plan = result.find(s => s.name === 'plan');
-    const ads = result.find(s => s.name === 'ads');
+    const plan = result.find((s) => s.name === 'plan');
+    const ads = result.find((s) => s.name === 'ads');
     expect(plan?.status).toBe('active');
     expect(ads?.status).toBe('disabled');
   });
@@ -67,7 +83,9 @@ describe('scanPlugins', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skillctl-'));
-    fs.mkdirSync(path.join(tmpDir, 'plugins', 'cache', 'mkt', 'myplugin', '1.0.0', 'skills'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'plugins', 'cache', 'mkt', 'myplugin', '1.0.0', 'skills'), {
+      recursive: true,
+    });
   });
 
   afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
@@ -79,31 +97,38 @@ describe('scanPlugins', () => {
   it('returns a PluginEntry with skills from cache', () => {
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'installed_plugins.json'),
-      JSON.stringify({ version: 1, plugins: { 'myplugin@mkt': {} } })
+      JSON.stringify({ version: 1, plugins: { 'myplugin@mkt': {} } }),
     );
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'blocklist.json'),
-      JSON.stringify({ fetchedAt: new Date().toISOString(), plugins: [] })
+      JSON.stringify({ fetchedAt: new Date().toISOString(), plugins: [] }),
     );
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'cache', 'mkt', 'myplugin', '1.0.0', 'skills', 'deploy.md'),
-      '# Deploy\n\nDeploys things.'
+      '# Deploy\n\nDeploys things.',
     );
 
     const result = scanPlugins(tmpDir);
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ id: 'myplugin@mkt', status: 'active' });
-    expect(result[0].skills[0]).toMatchObject({ name: 'myplugin:deploy', status: 'active', description: 'Deploys things.' });
+    expect(result[0].skills[0]).toMatchObject({
+      name: 'myplugin:deploy',
+      status: 'active',
+      description: 'Deploys things.',
+    });
   });
 
   it('marks plugin as disabled when in blocklist', () => {
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'installed_plugins.json'),
-      JSON.stringify({ version: 1, plugins: { 'myplugin@mkt': {} } })
+      JSON.stringify({ version: 1, plugins: { 'myplugin@mkt': {} } }),
     );
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'blocklist.json'),
-      JSON.stringify({ fetchedAt: new Date().toISOString(), plugins: [{ plugin: 'myplugin@mkt', added_at: new Date().toISOString(), reason: 'test' }] })
+      JSON.stringify({
+        fetchedAt: new Date().toISOString(),
+        plugins: [{ plugin: 'myplugin@mkt', added_at: new Date().toISOString(), reason: 'test' }],
+      }),
     );
 
     const result = scanPlugins(tmpDir);
@@ -113,7 +138,7 @@ describe('scanPlugins', () => {
   it('returns empty plugins array for orphan plugin with no cache dir', () => {
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'installed_plugins.json'),
-      JSON.stringify({ version: 1, plugins: { 'orphan@mkt': {} } })
+      JSON.stringify({ version: 1, plugins: { 'orphan@mkt': {} } }),
     );
     const result = scanPlugins(tmpDir);
     expect(result).toHaveLength(1);
@@ -127,15 +152,18 @@ describe('scanPlugins', () => {
     fs.mkdirSync(path.join(cacheBase, '1.0.9', 'skills'), { recursive: true });
     fs.mkdirSync(path.join(cacheBase, '1.0.10', 'skills'), { recursive: true });
     // Skill only in 1.0.10
-    fs.writeFileSync(path.join(cacheBase, '1.0.10', 'skills', 'deploy.md'), '# Deploy\n\nLatest deploy.');
+    fs.writeFileSync(
+      path.join(cacheBase, '1.0.10', 'skills', 'deploy.md'),
+      '# Deploy\n\nLatest deploy.',
+    );
 
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'installed_plugins.json'),
-      JSON.stringify({ version: 1, plugins: { 'myplugin@mkt': {} } })
+      JSON.stringify({ version: 1, plugins: { 'myplugin@mkt': {} } }),
     );
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'blocklist.json'),
-      JSON.stringify({ fetchedAt: new Date().toISOString(), plugins: [] })
+      JSON.stringify({ fetchedAt: new Date().toISOString(), plugins: [] }),
     );
 
     const result = scanPlugins(tmpDir);
@@ -144,11 +172,35 @@ describe('scanPlugins', () => {
   });
 
   it('returns empty plugins when installed_plugins.json is malformed JSON', () => {
-    fs.writeFileSync(
-      path.join(tmpDir, 'plugins', 'installed_plugins.json'),
-      '{ broken json'
-    );
+    fs.writeFileSync(path.join(tmpDir, 'plugins', 'installed_plugins.json'), '{ broken json');
     const result = scanPlugins(tmpDir);
     expect(result).toHaveLength(0);
+  });
+  it('discovers nested markdown skills and ignores other nested files', () => {
+    const skills = path.join(tmpDir, 'plugins', 'cache', 'mkt', 'myplugin', '1.0.0', 'skills');
+    fs.mkdirSync(path.join(skills, 'workflow'));
+    fs.writeFileSync(path.join(skills, 'workflow', 'plan.md'), '# Plan\nNested planning.');
+    fs.writeFileSync(path.join(skills, 'workflow', 'notes.txt'), 'ignore');
+    fs.writeFileSync(
+      path.join(tmpDir, 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ plugins: { 'myplugin@mkt': {} } }),
+    );
+    expect(scanPlugins(tmpDir)[0].skills).toEqual([
+      {
+        source: 'plugin',
+        name: 'workflow:plan',
+        plugin: 'myplugin@mkt',
+        status: 'active',
+        description: 'Nested planning.',
+      },
+    ]);
+  });
+  it('warns on malformed blocklist JSON while retaining plugin inventory', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ plugins: { 'myplugin@mkt': {} } }),
+    );
+    fs.writeFileSync(path.join(tmpDir, 'plugins', 'blocklist.json'), '{ broken');
+    expect(scanPlugins(tmpDir)[0]).toMatchObject({ id: 'myplugin@mkt', status: 'active' });
   });
 });

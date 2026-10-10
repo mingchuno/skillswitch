@@ -1,18 +1,19 @@
 // tests/profiles.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  readProfileStore,
-  saveProfile,
-  deleteProfile,
   activateProfile,
-  renameProfile,
   copyProfile,
+  deleteProfile,
   diffProfile,
   exportProfile,
   importProfile,
+  readProfileStore,
+  renameProfile,
+  saveProfile,
   validateProfile,
 } from '../src/profiles.js';
 
@@ -23,8 +24,14 @@ beforeEach(() => {
   fs.mkdirSync(path.join(tmpDir, 'skills'));
   fs.mkdirSync(path.join(tmpDir, 'skills', '.disabled'), { recursive: true });
   fs.mkdirSync(path.join(tmpDir, 'plugins'));
-  fs.writeFileSync(path.join(tmpDir, 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 1, plugins: {} }));
-  fs.writeFileSync(path.join(tmpDir, 'plugins', 'blocklist.json'), JSON.stringify({ fetchedAt: new Date().toISOString(), plugins: [] }));
+  fs.writeFileSync(
+    path.join(tmpDir, 'plugins', 'installed_plugins.json'),
+    JSON.stringify({ version: 1, plugins: {} }),
+  );
+  fs.writeFileSync(
+    path.join(tmpDir, 'plugins', 'blocklist.json'),
+    JSON.stringify({ fetchedAt: new Date().toISOString(), plugins: [] }),
+  );
 });
 
 afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
@@ -232,7 +239,7 @@ describe('activateProfile', () => {
   it('blocks plugins not in profile and returns pluginsBlocked', async () => {
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'installed_plugins.json'),
-      JSON.stringify({ version: 1, plugins: { 'vercel@mkt': {}, 'ads@mkt': {} } })
+      JSON.stringify({ version: 1, plugins: { 'vercel@mkt': {}, 'ads@mkt': {} } }),
     );
     saveProfile('dev', [], ['vercel@mkt'], tmpDir);
 

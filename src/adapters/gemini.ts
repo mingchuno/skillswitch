@@ -1,10 +1,10 @@
 // src/adapters/gemini.ts — Gemini CLI adapter
 // Skills: ~/.gemini/skills/<name>/SKILL.md  AND  ~/.agents/skills/<name>/SKILL.md
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import type { CliAdapter, AdapterSkill } from './types.js';
-import { scanDirSkills, disableDirSkill, enableDirSkill, findSkillDir } from './helpers.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { disableDirSkill, enableDirSkill, findSkillDir, scanDirSkills } from './helpers.js';
+import type { AdapterSkill, CliAdapter } from './types.js';
 
 const HOME = os.homedir();
 
@@ -26,7 +26,10 @@ export class GeminiAdapter implements CliAdapter {
     for (const [i, dir] of this.skillsDirs.entries()) {
       const group = i === 0 ? undefined : 'shared';
       for (const s of scanDirSkills(dir, group)) {
-        if (!seen.has(s.name)) { seen.add(s.name); skills.push(s); }
+        if (!seen.has(s.name)) {
+          seen.add(s.name);
+          skills.push(s);
+        }
       }
     }
     return skills;

@@ -1,8 +1,9 @@
 // tests/catalog.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateCatalog } from '../src/catalog.js';
 
 let tmpDir: string;
@@ -11,21 +12,33 @@ beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skillctl-'));
   fs.mkdirSync(path.join(tmpDir, 'skills'));
   fs.mkdirSync(path.join(tmpDir, 'plugins'));
-  fs.writeFileSync(path.join(tmpDir, 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 1, plugins: {} }));
-  fs.writeFileSync(path.join(tmpDir, 'plugins', 'blocklist.json'), JSON.stringify({ fetchedAt: new Date().toISOString(), plugins: [] }));
+  fs.writeFileSync(
+    path.join(tmpDir, 'plugins', 'installed_plugins.json'),
+    JSON.stringify({ version: 1, plugins: {} }),
+  );
+  fs.writeFileSync(
+    path.join(tmpDir, 'plugins', 'blocklist.json'),
+    JSON.stringify({ fetchedAt: new Date().toISOString(), plugins: [] }),
+  );
 });
 
 afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
 describe('generateCatalog', () => {
   it('writes SKILLS.md to claude dir root', () => {
-    fs.writeFileSync(path.join(tmpDir, 'skills', 'plan.md'), '# Plan\n\nDesign implementation plans.');
+    fs.writeFileSync(
+      path.join(tmpDir, 'skills', 'plan.md'),
+      '# Plan\n\nDesign implementation plans.',
+    );
     generateCatalog(tmpDir);
     expect(fs.existsSync(path.join(tmpDir, 'SKILLS.md'))).toBe(true);
   });
 
   it('includes active skill name and description', () => {
-    fs.writeFileSync(path.join(tmpDir, 'skills', 'plan.md'), '# Plan\n\nDesign implementation plans.');
+    fs.writeFileSync(
+      path.join(tmpDir, 'skills', 'plan.md'),
+      '# Plan\n\nDesign implementation plans.',
+    );
     generateCatalog(tmpDir);
     const content = fs.readFileSync(path.join(tmpDir, 'SKILLS.md'), 'utf-8');
     expect(content).toContain('plan');
@@ -34,7 +47,10 @@ describe('generateCatalog', () => {
 
   it('includes disabled skills in disabled section', () => {
     fs.mkdirSync(path.join(tmpDir, 'skills', '.disabled'));
-    fs.writeFileSync(path.join(tmpDir, 'skills', '.disabled', 'ads.md'), '# Ads\n\nPaid advertising.');
+    fs.writeFileSync(
+      path.join(tmpDir, 'skills', '.disabled', 'ads.md'),
+      '# Ads\n\nPaid advertising.',
+    );
     generateCatalog(tmpDir);
     const content = fs.readFileSync(path.join(tmpDir, 'SKILLS.md'), 'utf-8');
     expect(content).toContain('ads');
@@ -54,14 +70,16 @@ describe('generateCatalog', () => {
   });
 
   it('includes active plugin section in SKILLS.md', () => {
-    fs.mkdirSync(path.join(tmpDir, 'plugins', 'cache', 'mkt', 'myplugin', '1.0.0', 'skills'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'plugins', 'cache', 'mkt', 'myplugin', '1.0.0', 'skills'), {
+      recursive: true,
+    });
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'installed_plugins.json'),
-      JSON.stringify({ version: 1, plugins: { 'myplugin@mkt': {} } })
+      JSON.stringify({ version: 1, plugins: { 'myplugin@mkt': {} } }),
     );
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'cache', 'mkt', 'myplugin', '1.0.0', 'skills', 'deploy.md'),
-      '# Deploy\n\nDeploys the app.'
+      '# Deploy\n\nDeploys the app.',
     );
 
     const result = generateCatalog(tmpDir);
@@ -71,21 +89,23 @@ describe('generateCatalog', () => {
   });
 
   it('includes disabled plugin section when plugin is blocked', () => {
-    fs.mkdirSync(path.join(tmpDir, 'plugins', 'cache', 'mkt', 'myplugin', '1.0.0', 'skills'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'plugins', 'cache', 'mkt', 'myplugin', '1.0.0', 'skills'), {
+      recursive: true,
+    });
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'installed_plugins.json'),
-      JSON.stringify({ version: 1, plugins: { 'myplugin@mkt': {} } })
+      JSON.stringify({ version: 1, plugins: { 'myplugin@mkt': {} } }),
     );
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'blocklist.json'),
       JSON.stringify({
         fetchedAt: new Date().toISOString(),
         plugins: [{ plugin: 'myplugin@mkt', added_at: new Date().toISOString(), reason: 'test' }],
-      })
+      }),
     );
     fs.writeFileSync(
       path.join(tmpDir, 'plugins', 'cache', 'mkt', 'myplugin', '1.0.0', 'skills', 'deploy.md'),
-      '# Deploy\n\nDeploys the app.'
+      '# Deploy\n\nDeploys the app.',
     );
 
     const result = generateCatalog(tmpDir);
@@ -95,7 +115,7 @@ describe('generateCatalog', () => {
   it('escapes pipe characters in skill descriptions', () => {
     fs.writeFileSync(path.join(tmpDir, 'skills', 'plan.md'), '# Plan\n\nDo A | B and C.');
     const result = generateCatalog(tmpDir);
-    const tableRow = result.split('\n').find(line => line.includes('plan'));
+    const tableRow = result.split('\n').find((line) => line.includes('plan'));
     expect(tableRow).toBeDefined();
     expect(tableRow).toContain('\\|');
   });

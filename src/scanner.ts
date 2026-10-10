@@ -1,8 +1,14 @@
 // src/scanner.ts
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import type { StandaloneSkill, PluginSkill, PluginEntry, SkillStatus, BlocklistFile } from './types.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import type {
+  BlocklistFile,
+  PluginEntry,
+  PluginSkill,
+  SkillStatus,
+  StandaloneSkill,
+} from './types.js';
 
 export const defaultClaudeDir = path.join(os.homedir(), '.claude');
 
@@ -38,7 +44,13 @@ export function scanStandaloneSkills(claudeDir = defaultClaudeDir): StandaloneSk
       const name = file.slice(0, -3);
       try {
         const content = fs.readFileSync(filePath, 'utf-8');
-        skills.push({ source: 'standalone', name, path: filePath, status, description: extractDescription(content) });
+        skills.push({
+          source: 'standalone',
+          name,
+          path: filePath,
+          status,
+          description: extractDescription(content),
+        });
       } catch {
         process.stderr.write(`Warning: could not read ${filePath} — skipping\n`);
       }
@@ -61,7 +73,9 @@ export function scanPlugins(claudeDir = defaultClaudeDir): PluginEntry[] {
     pluginMap = raw.plugins ?? {};
   } catch (err) {
     if (err instanceof SyntaxError) {
-      process.stderr.write('Warning: plugins/installed_plugins.json is malformed — skipping plugin scan\n');
+      process.stderr.write(
+        'Warning: plugins/installed_plugins.json is malformed — skipping plugin scan\n',
+      );
       return [];
     }
     throw err;
@@ -82,7 +96,7 @@ export function scanPlugins(claudeDir = defaultClaudeDir): PluginEntry[] {
     }
   }
 
-  return Object.keys(pluginMap).map(pluginId => {
+  return Object.keys(pluginMap).map((pluginId) => {
     const atIdx = pluginId.indexOf('@');
     const name = atIdx >= 0 ? pluginId.slice(0, atIdx) : pluginId;
     const sourceMarket = atIdx >= 0 ? pluginId.slice(atIdx + 1) : '';
@@ -92,12 +106,14 @@ export function scanPlugins(claudeDir = defaultClaudeDir): PluginEntry[] {
     const pluginSkills: PluginSkill[] = [];
 
     if (fs.existsSync(cacheBase)) {
-      const versions = fs.readdirSync(cacheBase)
-        .filter(d => fs.statSync(path.join(cacheBase, d)).isDirectory())
+      const versions = fs
+        .readdirSync(cacheBase)
+        .filter((d) => fs.statSync(path.join(cacheBase, d)).isDirectory())
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
       if (versions.length > 0) {
         const skillsDir = path.join(cacheBase, versions[versions.length - 1], 'skills');
-        if (fs.existsSync(skillsDir)) collectPluginSkills(skillsDir, name, pluginId, status, pluginSkills);
+        if (fs.existsSync(skillsDir))
+          collectPluginSkills(skillsDir, name, pluginId, status, pluginSkills);
       }
     }
 
@@ -105,7 +121,13 @@ export function scanPlugins(claudeDir = defaultClaudeDir): PluginEntry[] {
   });
 }
 
-function collectPluginSkills(dir: string, pluginName: string, pluginId: string, status: SkillStatus, out: PluginSkill[]) {
+function collectPluginSkills(
+  dir: string,
+  pluginName: string,
+  pluginId: string,
+  status: SkillStatus,
+  out: PluginSkill[],
+) {
   for (const entry of fs.readdirSync(dir)) {
     const entryPath = path.join(dir, entry);
     if (fs.statSync(entryPath).isDirectory()) {
@@ -114,7 +136,13 @@ function collectPluginSkills(dir: string, pluginName: string, pluginId: string, 
         const subPath = path.join(entryPath, sub);
         try {
           const content = fs.readFileSync(subPath, 'utf-8');
-          out.push({ source: 'plugin', name: `${entry}:${sub.slice(0, -3)}`, plugin: pluginId, status, description: extractDescription(content) });
+          out.push({
+            source: 'plugin',
+            name: `${entry}:${sub.slice(0, -3)}`,
+            plugin: pluginId,
+            status,
+            description: extractDescription(content),
+          });
         } catch {
           process.stderr.write(`Warning: could not read ${subPath} — skipping\n`);
         }
@@ -122,7 +150,13 @@ function collectPluginSkills(dir: string, pluginName: string, pluginId: string, 
     } else if (entry.endsWith('.md')) {
       try {
         const content = fs.readFileSync(entryPath, 'utf-8');
-        out.push({ source: 'plugin', name: `${pluginName}:${entry.slice(0, -3)}`, plugin: pluginId, status, description: extractDescription(content) });
+        out.push({
+          source: 'plugin',
+          name: `${pluginName}:${entry.slice(0, -3)}`,
+          plugin: pluginId,
+          status,
+          description: extractDescription(content),
+        });
       } catch {
         process.stderr.write(`Warning: could not read ${entryPath} — skipping\n`);
       }

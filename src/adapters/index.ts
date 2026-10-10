@@ -1,16 +1,17 @@
 // src/adapters/index.ts
-import type { CliAdapter } from './types.js';
+
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { AiderAdapter } from './aider.js';
+import { AmpAdapter } from './amp.js';
 import { ClaudeAdapter } from './claude.js';
-import { GeminiAdapter } from './gemini.js';
 import { CodexAdapter } from './codex.js';
 import { FactoryAdapter } from './factory.js';
-import { AmpAdapter } from './amp.js';
-import { AiderAdapter } from './aider.js';
-import * as os from 'os';
-import * as path from 'path';
+import { GeminiAdapter } from './gemini.js';
+import type { CliAdapter } from './types.js';
 
-export type { CliAdapter, AdapterSkill } from './types.js';
 export { AiderAdapter } from './aider.js';
+export type { AdapterSkill, CliAdapter } from './types.js';
 
 const ADAPTERS: Record<string, (claudeDir?: string) => CliAdapter> = {
   claude: (claudeDir) => new ClaudeAdapter(claudeDir ?? path.join(os.homedir(), '.claude')),
@@ -30,5 +31,5 @@ export function getAdapter(cli: string, claudeDir?: string): CliAdapter {
 }
 
 export function getAllAdapters(): CliAdapter[] {
-  return CLI_NAMES.map(name => ADAPTERS[name]());
+  return CLI_NAMES.map((name) => ADAPTERS[name]());
 }

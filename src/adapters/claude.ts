@@ -1,10 +1,10 @@
 // src/adapters/claude.ts — Claude Code adapter
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import type { CliAdapter, AdapterSkill } from './types.js';
-import { scanStandaloneSkills } from '../scanner.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { disableSkill, enableSkill } from '../disable.js';
+import { scanStandaloneSkills } from '../scanner.js';
+import type { AdapterSkill, CliAdapter } from './types.js';
 
 export class ClaudeAdapter implements CliAdapter {
   readonly cliName = 'claude';
@@ -20,7 +20,7 @@ export class ClaudeAdapter implements CliAdapter {
   }
 
   scanSkills(): AdapterSkill[] {
-    return scanStandaloneSkills(this.claudeDir).map(s => ({
+    return scanStandaloneSkills(this.claudeDir).map((s) => ({
       name: s.name,
       status: s.status,
       description: s.description,

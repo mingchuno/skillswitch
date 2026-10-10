@@ -1,7 +1,7 @@
 // src/disable.ts
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { boundedDisabledDir, moveSkill } from './moves.js';
 
 export const defaultClaudeDir = path.join(os.homedir(), '.claude');
@@ -9,11 +9,23 @@ export const defaultClaudeDir = path.join(os.homedir(), '.claude');
 const skillsDir = (d: string) => path.join(d, 'skills');
 
 export function disableSkill(name: string, claudeDir = defaultClaudeDir): void {
-  moveSkill(name, skillsDir(claudeDir), false, false, `Skill "${name}" not found in skills directory`);
+  moveSkill(
+    name,
+    skillsDir(claudeDir),
+    false,
+    false,
+    `Skill "${name}" not found in skills directory`,
+  );
 }
 
 export function enableSkill(name: string, claudeDir = defaultClaudeDir): void {
-  moveSkill(name, skillsDir(claudeDir), false, true, `Skill "${name}" is not in disabled directory`);
+  moveSkill(
+    name,
+    skillsDir(claudeDir),
+    false,
+    true,
+    `Skill "${name}" is not in disabled directory`,
+  );
 }
 
 export function disableAllExcept(keepNames: string[], claudeDir = defaultClaudeDir): void {

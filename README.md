@@ -10,7 +10,7 @@ Manage AI CLI skills across Claude Code, Gemini CLI, Codex CLI, Aider, Amp, and 
 ## Quick start
 
 ```bash
-npm install -g skillswitch
+pnpm add -g skillswitch
 skillswitch detect                 # see which CLIs are installed
 skillswitch status                 # skills active vs disabled (Claude Code by default)
 skillswitch disable ads            # disable all skills matching "ads"
@@ -60,9 +60,9 @@ Claude Code injects the name and description of every installed skill into every
 ## Install
 
 ```bash
-npm install -g skillswitch
+pnpm add -g skillswitch
 # or run without installing:
-npx skillswitch <command>
+pnpm dlx skillswitch <command>
 ```
 
 ## Supported CLIs
@@ -159,8 +159,8 @@ Profile activation validates inventory and planned moves before changing skills.
 Concurrent filesystem changes or later I/O failures can still interrupt an
 activation; this is not a transactional profile switch.
 
-The CLI requires Node >=18; the separate `web/` landing requires Node >=20.9.
-Root development and tests require Node >=20.6.
+The CLI requires Node >=18. Development and tests require Node >=22 and
+the pnpm version pinned in `package.json`.
 
 No telemetry, no auth, no network — pure local filesystem tool.
 

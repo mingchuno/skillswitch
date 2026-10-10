@@ -1,8 +1,8 @@
 // src/adapters/helpers.ts — shared file operations for all adapters
-import * as fs from 'fs';
-import * as path from 'path';
-import type { AdapterSkill } from './types.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { moveSkill } from '../moves.js';
+import type { AdapterSkill } from './types.js';
 
 function parseFrontmatterField(frontmatter: string, field: string): string {
   return frontmatter.match(new RegExp(`^${field}:\\s*(.+)$`, 'm'))?.[1]?.trim() ?? '';
@@ -11,13 +11,21 @@ function parseFrontmatterField(frontmatter: string, field: string): string {
 export function parseSkillMd(content: string): { name: string; description: string } {
   const m = content.match(/^---\n([\s\S]*?)\n---/);
   if (!m) return { name: '', description: '' };
-  return { name: parseFrontmatterField(m[1], 'name'), description: parseFrontmatterField(m[1], 'description') };
+  return {
+    name: parseFrontmatterField(m[1], 'name'),
+    description: parseFrontmatterField(m[1], 'description'),
+  };
 }
 
 export function extractFirstLine(content: string): string {
-  let inFm = false, fmClosed = false;
+  let inFm = false,
+    fmClosed = false;
   for (const line of content.split('\n')) {
-    if (!fmClosed && line.trim() === '---') { inFm = !inFm; if (!inFm) fmClosed = true; continue; }
+    if (!fmClosed && line.trim() === '---') {
+      inFm = !inFm;
+      if (!inFm) fmClosed = true;
+      continue;
+    }
     if (inFm || !line.trim() || line.startsWith('#')) continue;
     return line.trim();
   }
@@ -28,7 +36,9 @@ function readDesc(filePath: string): string {
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
     return parseSkillMd(content).description || extractFirstLine(content);
-  } catch { return ''; }
+  } catch {
+    return '';
+  }
 }
 
 // ── Flat-file skills (e.g. Claude, Factory): one .md file per skill ──────────
@@ -36,13 +46,21 @@ function readDesc(filePath: string): string {
 export function scanFlatSkills(dir: string, group?: string): AdapterSkill[] {
   const skills: AdapterSkill[] = [];
   const disabledDir = path.join(dir, '.disabled');
-  for (const [d, status] of [[dir, 'active'], [disabledDir, 'disabled']] as const) {
+  for (const [d, status] of [
+    [dir, 'active'],
+    [disabledDir, 'disabled'],
+  ] as const) {
     if (!fs.existsSync(d)) continue;
     for (const file of fs.readdirSync(d)) {
       if (!file.endsWith('.md')) continue;
       const fp = path.join(d, file);
       if (!fs.statSync(fp).isFile()) continue;
-      skills.push({ name: file.slice(0, -3), status, description: readDesc(fp), ...(group ? { group } : {}) });
+      skills.push({
+        name: file.slice(0, -3),
+        status,
+        description: readDesc(fp),
+        ...(group ? { group } : {}),
+      });
     }
   }
   return skills;
@@ -61,7 +79,10 @@ export function enableFlatSkill(name: string, dir: string): void {
 export function scanDirSkills(dir: string, group?: string): AdapterSkill[] {
   const skills: AdapterSkill[] = [];
   const disabledDir = path.join(dir, '.disabled');
-  for (const [d, status] of [[dir, 'active'], [disabledDir, 'disabled']] as const) {
+  for (const [d, status] of [
+    [dir, 'active'],
+    [disabledDir, 'disabled'],
+  ] as const) {
     if (!fs.existsSync(d)) continue;
     for (const entry of fs.readdirSync(d)) {
       if (entry === '.disabled') continue;
@@ -90,7 +111,9 @@ export function enableDirSkill(name: string, dir: string): void {
 export function findSkillDir(name: string, dirs: string[], dirBased: boolean): string | null {
   for (const dir of dirs) {
     const target = dirBased ? path.join(dir, name) : path.join(dir, `${name}.md`);
-    const disTarget = dirBased ? path.join(dir, '.disabled', name) : path.join(dir, '.disabled', `${name}.md`);
+    const disTarget = dirBased
+      ? path.join(dir, '.disabled', name)
+      : path.join(dir, '.disabled', `${name}.md`);
     if (fs.existsSync(target) || fs.existsSync(disTarget)) return dir;
   }
   return null;

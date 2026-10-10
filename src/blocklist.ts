@@ -1,9 +1,10 @@
 // src/blocklist.ts
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { homedir } from 'os';
-import type { BlocklistEntry, BlocklistFile } from './types.js';
+
+import * as fs from 'node:fs/promises';
+import { homedir } from 'node:os';
+import * as path from 'node:path';
 import { writeAtomic } from './atomic.js';
+import type { BlocklistEntry, BlocklistFile } from './types.js';
 
 const defaultClaudeDir = path.join(homedir(), '.claude');
 
@@ -16,9 +17,18 @@ export async function readBlocklist(claudeDir = defaultClaudeDir): Promise<Block
   try {
     const raw = await fs.readFile(filePath, 'utf-8');
     const parsed = JSON.parse(raw) as BlocklistFile;
-    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.plugins) ||
-        !parsed.plugins.every(e => e && typeof e.plugin === 'string' &&
-          typeof e.added_at === 'string' && typeof e.reason === 'string')) {
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      !Array.isArray(parsed.plugins) ||
+      !parsed.plugins.every(
+        (e) =>
+          e &&
+          typeof e.plugin === 'string' &&
+          typeof e.added_at === 'string' &&
+          typeof e.reason === 'string',
+      )
+    ) {
       throw new Error('Invalid blocklist.json structure');
     }
     const plugins = parsed.plugins;
@@ -39,9 +49,13 @@ async function writeBlocklist(data: BlocklistFile, claudeDir: string): Promise<v
   await writeAtomic(filePath, JSON.stringify(data, null, 2));
 }
 
-export async function blockPlugin(pluginId: string, reason: string, claudeDir = defaultClaudeDir): Promise<void> {
+export async function blockPlugin(
+  pluginId: string,
+  reason: string,
+  claudeDir = defaultClaudeDir,
+): Promise<void> {
   const blocklist = await readBlocklist(claudeDir);
-  const alreadyBlocked = blocklist.plugins.some(e => e.plugin === pluginId);
+  const alreadyBlocked = blocklist.plugins.some((e) => e.plugin === pluginId);
   if (alreadyBlocked) return;
   const entry: BlocklistEntry = { plugin: pluginId, added_at: new Date().toISOString(), reason };
   blocklist.plugins.push(entry);
@@ -49,9 +63,12 @@ export async function blockPlugin(pluginId: string, reason: string, claudeDir = 
   await writeBlocklist(blocklist, claudeDir);
 }
 
-export async function unblockPlugin(pluginId: string, claudeDir = defaultClaudeDir): Promise<boolean> {
+export async function unblockPlugin(
+  pluginId: string,
+  claudeDir = defaultClaudeDir,
+): Promise<boolean> {
   const blocklist = await readBlocklist(claudeDir);
-  const filtered = blocklist.plugins.filter(e => e.plugin !== pluginId);
+  const filtered = blocklist.plugins.filter((e) => e.plugin !== pluginId);
   if (filtered.length === blocklist.plugins.length) return false;
   blocklist.plugins = filtered;
   blocklist.fetchedAt = new Date().toISOString();
@@ -59,9 +76,13 @@ export async function unblockPlugin(pluginId: string, claudeDir = defaultClaudeD
   return true;
 }
 
-export async function setBlockedPlugins(pluginIds: string[], reason: string, claudeDir = defaultClaudeDir): Promise<void> {
+export async function setBlockedPlugins(
+  pluginIds: string[],
+  reason: string,
+  claudeDir = defaultClaudeDir,
+): Promise<void> {
   const now = new Date().toISOString();
-  const plugins: BlocklistEntry[] = pluginIds.map(id => ({ plugin: id, added_at: now, reason }));
+  const plugins: BlocklistEntry[] = pluginIds.map((id) => ({ plugin: id, added_at: now, reason }));
   const data: BlocklistFile = { fetchedAt: now, plugins };
   await writeBlocklist(data, claudeDir);
 }

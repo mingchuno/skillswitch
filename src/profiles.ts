@@ -1,12 +1,12 @@
 // src/profiles.ts
-import * as fs from 'fs';
-import * as path from 'path';
-import { homedir } from 'os';
-import type { Profile, ProfileStore } from './types.js';
-import { disableSkill, enableSkill } from './disable.js';
-import { readBlocklist, setBlockedPlugins } from './blocklist.js';
+import * as fs from 'node:fs';
+import { homedir } from 'node:os';
+import * as path from 'node:path';
 import { writeAtomicSync } from './atomic.js';
+import { readBlocklist, setBlockedPlugins } from './blocklist.js';
+import { disableSkill, enableSkill } from './disable.js';
 import { assertMoveAllowed, validateSkillName } from './moves.js';
+import type { Profile, ProfileStore } from './types.js';
 
 const defaultClaudeDir = path.join(homedir(), '.claude');
 
@@ -37,18 +37,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function validateLists(skills: unknown, plugins: unknown): void {
-  if (!Array.isArray(skills) || !Array.isArray(plugins) ||
-      !skills.every(s => typeof s === 'string' && s.length > 0 &&
-        !['.', '..', '.disabled'].includes(s) && !/[/\\]/.test(s)) ||
-      !plugins.every(p => typeof p === 'string' && p.length > 0)) {
+  if (
+    !Array.isArray(skills) ||
+    !Array.isArray(plugins) ||
+    !skills.every(
+      (s) =>
+        typeof s === 'string' &&
+        s.length > 0 &&
+        !['.', '..', '.disabled'].includes(s) &&
+        !/[/\\]/.test(s),
+    ) ||
+    !plugins.every((p) => typeof p === 'string' && p.length > 0)
+  ) {
     throw new Error('Profile skills and plugins must be valid string arrays');
   }
   for (const skill of skills) validateSkillName(skill);
 }
 
 function validateName(name: unknown): asserts name is string {
-  if (typeof name !== 'string' || !name.trim() || name.length > 64 ||
-      /[/\\]/.test(name) || ['__proto__', 'constructor', 'prototype'].includes(name)) {
+  if (
+    typeof name !== 'string' ||
+    !name.trim() ||
+    name.length > 64 ||
+    /[/\\]/.test(name) ||
+    ['__proto__', 'constructor', 'prototype'].includes(name)
+  ) {
     throw new Error('Invalid profile name');
   }
 }
@@ -58,20 +71,29 @@ export function readProfileStore(claudeDir = defaultClaudeDir): ProfileStore {
   try {
     const raw = fs.readFileSync(filePath, 'utf-8');
     const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed) || !isRecord(parsed.profiles) ||
-        !(parsed.active === null || typeof parsed.active === 'string') ||
-        !(parsed.previous === null || typeof parsed.previous === 'string')) {
+    if (
+      !isRecord(parsed) ||
+      !isRecord(parsed.profiles) ||
+      !(parsed.active === null || typeof parsed.active === 'string') ||
+      !(parsed.previous === null || typeof parsed.previous === 'string')
+    ) {
       throw new Error('Invalid profiles.json structure');
     }
     for (const [name, profile] of Object.entries(parsed.profiles)) {
       validateName(name);
-      if (!isRecord(profile) || typeof profile.created !== 'string' ||
-          !(profile.updatedAt === undefined || typeof profile.updatedAt === 'string')) {
+      if (
+        !isRecord(profile) ||
+        typeof profile.created !== 'string' ||
+        !(profile.updatedAt === undefined || typeof profile.updatedAt === 'string')
+      ) {
         throw new Error('Invalid profile structure');
       }
       validateLists(profile.skills, profile.plugins);
     }
-    return { ...parsed, profiles: Object.assign(Object.create(null), parsed.profiles) } as unknown as ProfileStore;
+    return {
+      ...parsed,
+      profiles: Object.assign(Object.create(null), parsed.profiles),
+    } as unknown as ProfileStore;
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return { active: null, previous: null, profiles: Object.create(null) };
@@ -88,7 +110,12 @@ function writeProfileStore(store: ProfileStore, claudeDir: string): void {
   writeAtomicSync(filePath, JSON.stringify(store, null, 2));
 }
 
-export function saveProfile(name: string, skills: string[], plugins: string[], claudeDir = defaultClaudeDir): void {
+export function saveProfile(
+  name: string,
+  skills: string[],
+  plugins: string[],
+  claudeDir = defaultClaudeDir,
+): void {
   validateName(name);
   validateLists(skills, plugins);
   const store = readProfileStore(claudeDir);
@@ -110,7 +137,11 @@ export function deleteProfile(name: string, claudeDir = defaultClaudeDir): void 
   writeProfileStore(store, claudeDir);
 }
 
-export function renameProfile(oldName: string, newName: string, claudeDir = defaultClaudeDir): void {
+export function renameProfile(
+  oldName: string,
+  newName: string,
+  claudeDir = defaultClaudeDir,
+): void {
   validateName(oldName);
   validateName(newName);
   const store = readProfileStore(claudeDir);
@@ -169,18 +200,26 @@ export function diffProfile(name: string, claudeDir = defaultClaudeDir): Profile
   const toUnblock: string[] = [];
 
   try {
-    const raw = JSON.parse(fs.readFileSync(path.join(claudeDir, 'plugins', 'installed_plugins.json'), 'utf-8'));
+    const raw = JSON.parse(
+      fs.readFileSync(path.join(claudeDir, 'plugins', 'installed_plugins.json'), 'utf-8'),
+    );
     const installed = Object.keys(raw?.plugins ?? {});
     let currentlyBlocked = new Set<string>();
     try {
-      const blRaw = JSON.parse(fs.readFileSync(path.join(claudeDir, 'plugins', 'blocklist.json'), 'utf-8'));
+      const blRaw = JSON.parse(
+        fs.readFileSync(path.join(claudeDir, 'plugins', 'blocklist.json'), 'utf-8'),
+      );
       currentlyBlocked = new Set((blRaw.plugins as Array<{ plugin: string }>).map((e) => e.plugin));
-    } catch { /* treat as empty */ }
+    } catch {
+      /* treat as empty */
+    }
     for (const id of installed) {
       if (!profilePlugins.has(id) && !currentlyBlocked.has(id)) toBlock.push(id);
       if (profilePlugins.has(id) && currentlyBlocked.has(id)) toUnblock.push(id);
     }
-  } catch { /* no installed_plugins.json — skip */ }
+  } catch {
+    /* no installed_plugins.json — skip */
+  }
 
   return { toEnable, toDisable, toBlock, toUnblock };
 }
@@ -199,7 +238,12 @@ export function importProfile(jsonStr: string, claudeDir = defaultClaudeDir): st
   } catch {
     throw new Error('Invalid JSON in import file');
   }
-  if (!isRecord(parsed) || !parsed.name || !Array.isArray(parsed.skills) || !Array.isArray(parsed.plugins)) {
+  if (
+    !isRecord(parsed) ||
+    !parsed.name ||
+    !Array.isArray(parsed.skills) ||
+    !Array.isArray(parsed.plugins)
+  ) {
     throw new Error('Import file must have "name", "skills", and "plugins" fields');
   }
   saveProfile(parsed.name, parsed.skills, parsed.plugins, claudeDir);
@@ -230,7 +274,10 @@ export function validateProfile(name: string, claudeDir = defaultClaudeDir): Val
   return { validSkills, ghostSkills };
 }
 
-export async function activateProfile(name: string, claudeDir = defaultClaudeDir): Promise<ActivateResult> {
+export async function activateProfile(
+  name: string,
+  claudeDir = defaultClaudeDir,
+): Promise<ActivateResult> {
   const store = readProfileStore(claudeDir);
   const profile = store.profiles[name];
   if (!profile) throw new Error(`Profile "${name}" does not exist`);
@@ -245,7 +292,7 @@ export async function activateProfile(name: string, claudeDir = defaultClaudeDir
       throw new Error('Invalid installed_plugins.json structure');
     }
     const allInstalled = Object.keys(raw.plugins ?? {});
-    pluginsBlocked = allInstalled.filter(id => !profilePlugins.has(id));
+    pluginsBlocked = allInstalled.filter((id) => !profilePlugins.has(id));
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }

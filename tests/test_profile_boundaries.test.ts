@@ -1,9 +1,17 @@
-import { beforeEach, afterEach, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { importProfile, saveProfile, activateProfile, readProfileStore, renameProfile, copyProfile } from '../src/profiles.js';
+import { afterEach, beforeEach, expect, it } from 'vitest';
 import { blockPlugin } from '../src/blocklist.js';
+import {
+  activateProfile,
+  copyProfile,
+  importProfile,
+  readProfileStore,
+  renameProfile,
+  saveProfile,
+} from '../src/profiles.js';
+
 let dir: string;
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skillswitch-boundary-'));
@@ -13,7 +21,9 @@ beforeEach(() => {
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 it('rejects imported non-string skill entries before writing', () => {
-  expect(() => importProfile(JSON.stringify({ name: 'bad', skills: [1], plugins: [] }), dir)).toThrow();
+  expect(() =>
+    importProfile(JSON.stringify({ name: 'bad', skills: [1], plugins: [] }), dir),
+  ).toThrow();
   expect(fs.existsSync(path.join(dir, 'skillctl', 'profiles.json'))).toBe(false);
 });
 it('preflights malformed installed inventory before moving skills', async () => {
@@ -49,7 +59,10 @@ it('does not follow predictable profile or blocklist temporary symlinks', async 
 });
 it('rejects valid JSON with an invalid profile store shape', () => {
   fs.mkdirSync(path.join(dir, 'skillctl'));
-  fs.writeFileSync(path.join(dir, 'skillctl', 'profiles.json'), '{"active":null,"previous":null,"profiles":[]}');
+  fs.writeFileSync(
+    path.join(dir, 'skillctl', 'profiles.json'),
+    '{"active":null,"previous":null,"profiles":[]}',
+  );
   expect(() => readProfileStore(dir)).toThrow();
 });
 it('preflights every collision before moving the first skill', async () => {
@@ -66,12 +79,15 @@ it('preflights every collision before moving the first skill', async () => {
   expect(fs.existsSync(path.join(dir, 'plugins', 'blocklist.json'))).toBe(false);
 });
 
-it.each(['../bad', '__proto__', 'constructor', ''])('rejects invalid rename/copy destination %s without changing store', (name) => {
-  saveProfile('dev', [], [], dir);
-  const file = path.join(dir, 'skillctl', 'profiles.json');
-  const before = fs.readFileSync(file, 'utf8');
-  expect(() => renameProfile('dev', name, dir)).toThrow();
-  expect(fs.readFileSync(file, 'utf8')).toBe(before);
-  expect(() => copyProfile('dev', name, dir)).toThrow();
-  expect(fs.readFileSync(file, 'utf8')).toBe(before);
-});
+it.each(['../bad', '__proto__', 'constructor', ''])(
+  'rejects invalid rename/copy destination %s without changing store',
+  (name) => {
+    saveProfile('dev', [], [], dir);
+    const file = path.join(dir, 'skillctl', 'profiles.json');
+    const before = fs.readFileSync(file, 'utf8');
+    expect(() => renameProfile('dev', name, dir)).toThrow();
+    expect(fs.readFileSync(file, 'utf8')).toBe(before);
+    expect(() => copyProfile('dev', name, dir)).toThrow();
+    expect(fs.readFileSync(file, 'utf8')).toBe(before);
+  },
+);

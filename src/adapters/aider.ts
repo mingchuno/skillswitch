@@ -2,11 +2,11 @@
 // Aider has no native skill system. skillswitch manages ~/.aider/skills/*.md
 // Active skills must be manually added to ~/.aider.conf.yml under `read:`.
 // Run `skillswitch aider-config` to see what to add.
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import type { CliAdapter, AdapterSkill } from './types.js';
-import { scanFlatSkills, disableFlatSkill, enableFlatSkill } from './helpers.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { disableFlatSkill, enableFlatSkill, scanFlatSkills } from './helpers.js';
+import type { AdapterSkill, CliAdapter } from './types.js';
 
 const HOME = os.homedir();
 export const AIDER_SKILLS_DIR = path.join(HOME, '.aider', 'skills');
@@ -35,8 +35,8 @@ export class AiderAdapter implements CliAdapter {
 
   /** Returns the `read:` block to paste into ~/.aider.conf.yml */
   generateAiderConfig(): string {
-    const active = this.scanSkills().filter(s => s.status === 'active');
+    const active = this.scanSkills().filter((s) => s.status === 'active');
     if (!active.length) return '# No active aider skills\n';
-    return `read:\n${active.map(s => `  - ${path.join(AIDER_SKILLS_DIR, s.name + '.md')}`).join('\n')}\n`;
+    return `read:\n${active.map((s) => `  - ${path.join(AIDER_SKILLS_DIR, s.name + '.md')}`).join('\n')}\n`;
   }
 }

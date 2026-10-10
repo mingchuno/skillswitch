@@ -1,11 +1,11 @@
 // src/adapters/factory.ts — Factory Droid adapter
 // Droids:   ~/.factory/droids/<name>.md   (flat files, YAML frontmatter)
 // Commands: ~/.factory/commands/<name>.md (flat files, YAML frontmatter)
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import type { CliAdapter, AdapterSkill } from './types.js';
-import { scanFlatSkills, disableFlatSkill, enableFlatSkill, findSkillDir } from './helpers.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { disableFlatSkill, enableFlatSkill, findSkillDir, scanFlatSkills } from './helpers.js';
+import type { AdapterSkill, CliAdapter } from './types.js';
 
 const HOME = os.homedir();
 const FACTORY_DIR = path.join(HOME, '.factory');
@@ -13,10 +13,7 @@ const FACTORY_DIR = path.join(HOME, '.factory');
 export class FactoryAdapter implements CliAdapter {
   readonly cliName = 'droid';
   readonly displayName = 'Factory Droid';
-  readonly skillsDirs = [
-    path.join(FACTORY_DIR, 'droids'),
-    path.join(FACTORY_DIR, 'commands'),
-  ];
+  readonly skillsDirs = [path.join(FACTORY_DIR, 'droids'), path.join(FACTORY_DIR, 'commands')];
 
   isInstalled(): boolean {
     return fs.existsSync(FACTORY_DIR);
