@@ -54,12 +54,24 @@ function validateLists(skills: unknown, plugins: unknown): void {
   for (const skill of skills) validateSkillName(skill);
 }
 
+function profileNameError(name: string): string | undefined {
+  if (!name.trim()) return 'Profile name cannot be empty';
+  if (name.length > 64) return 'Profile name must be 64 characters or less';
+  if (/[/\\]/.test(name)) return 'Profile name cannot contain "/" or "\\"';
+  return undefined;
+}
+
+// CLI validation preserves its detailed diagnostics; store validation keeps
+// the generic error used by programmatic callers and persisted data checks.
+export function validateProfileName(name: string): void {
+  const error = profileNameError(name);
+  if (error) throw new Error(error);
+}
+
 function validateName(name: unknown): asserts name is string {
   if (
     typeof name !== 'string' ||
-    !name.trim() ||
-    name.length > 64 ||
-    /[/\\]/.test(name) ||
+    profileNameError(name) ||
     ['__proto__', 'constructor', 'prototype'].includes(name)
   ) {
     throw new Error('Invalid profile name');
@@ -135,6 +147,22 @@ export function deleteProfile(name: string, claudeDir = defaultClaudeDir): void 
   if (!store.profiles[name]) throw new Error(`Profile "${name}" does not exist`);
   delete store.profiles[name];
   writeProfileStore(store, claudeDir);
+}
+
+export function forceDeleteProfile(
+  name: string,
+  claudeDir = defaultClaudeDir,
+): 'deleted' | 'not-found' {
+  const store = readProfileStore(claudeDir);
+  if (store.active !== name) {
+    deleteProfile(name, claudeDir);
+    return 'deleted';
+  }
+  if (!store.profiles[name]) return 'not-found';
+  store.active = null;
+  delete store.profiles[name];
+  writeProfileStore(store, claudeDir);
+  return 'deleted';
 }
 
 export function renameProfile(

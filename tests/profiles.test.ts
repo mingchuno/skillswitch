@@ -268,3 +268,31 @@ describe('activateProfile', () => {
     expect(result.disabled).not.toContain('ghost');
   });
 });
+
+describe('forceDeleteProfile', () => {
+  it('deletes the active profile, clears active, and preserves previous and other profiles', async () => {
+    const { forceDeleteProfile } = await import('../src/profiles.js');
+    saveProfile('full', [], [], tmpDir);
+    saveProfile('dev', [], [], tmpDir);
+    await activateProfile('full', tmpDir);
+    await activateProfile('dev', tmpDir);
+    expect(forceDeleteProfile('dev', tmpDir)).toBe('deleted');
+    expect(readProfileStore(tmpDir)).toMatchObject({ active: null, previous: 'full' });
+    expect(Object.keys(readProfileStore(tmpDir).profiles)).toEqual(['full']);
+  });
+  it('leaves a dangling active reference unchanged when its profile is missing', async () => {
+    const { forceDeleteProfile } = await import('../src/profiles.js');
+    const file = path.join(tmpDir, 'skillctl', 'profiles.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const bytes = JSON.stringify({ active: 'missing', previous: 'keep', profiles: {} });
+    fs.writeFileSync(file, bytes);
+    expect(forceDeleteProfile('missing', tmpDir)).toBe('not-found');
+    expect(fs.readFileSync(file, 'utf8')).toBe(bytes);
+  });
+  it('deletes inactive profiles and keeps the missing-profile error', async () => {
+    const { forceDeleteProfile } = await import('../src/profiles.js');
+    saveProfile('dev', [], [], tmpDir);
+    expect(forceDeleteProfile('dev', tmpDir)).toBe('deleted');
+    expect(() => forceDeleteProfile('missing', tmpDir)).toThrow('does not exist');
+  });
+});
