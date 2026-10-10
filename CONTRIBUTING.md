@@ -28,16 +28,24 @@ Cobertura reports are also generated. Type-only interfaces are excluded.
 CLI subprocess tests verify the built artifact but do not contribute to
 in-process source coverage.
 
-GitLab CI installs from the frozen lockfile, runs all checks, and uploads
-JUnit results and coverage reports (including on test failures).
+GitHub Actions runs on pushes and pull requests, installs from the frozen
+lockfile, runs all checks, and uploads JUnit results and coverage reports
+(including on test failures).
 `pnpm test:ci` runs the same test reporting command locally.
 
 ## Repo layout
 
 ```
 src/
-  cli.ts            # executable entrypoint
-  commands.ts       # commander construction and command handlers
+  cli.ts            # runtime composition and executable entrypoint
+  commands.ts       # command definitions and handler wiring
+  cli/
+    context.ts      # handler inputs and dependency contracts
+    runtime.ts      # terminal, adapter, and file implementations
+    skills.ts       # skill query and mutation handlers
+    profiles.ts     # profile command handlers
+    inspection.ts   # catalog, audit, and detection handlers
+  inventory.ts      # pure search, count, and audit queries
   adapters/          # one file per supported CLI
     types.ts         # CliAdapter interface all adapters implement
     helpers.ts        # shared dir-scanning / enable-disable helpers
@@ -50,6 +58,12 @@ src/
   blocklist.ts           # Claude Code plugin blocklist.json handling
 tests/                    # vitest, one file per src module
 ```
+
+Keep `commands.ts` limited to command definitions, option adaptation, and
+handler wiring. Compose runtime dependencies in `cli.ts`; handlers receive
+explicit terminal, adapter, and file ports. Domain modules own validation and
+persistence. Test handlers with injected ports and temporary filesystem
+fixtures; keep built-CLI tests for output, exit status, and interactive behavior.
 
 ## Adding support for a new AI CLI
 

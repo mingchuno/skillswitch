@@ -79,3 +79,117 @@ it('forced profile deletion ignores predictable temporary symlinks', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it.each([
+  ['create', '', 'Error: Profile name cannot be empty'],
+  ['create', 'a'.repeat(65), 'Error: Profile name must be 64 characters or less'],
+  ['rename', 'dev', '../bad', 'Error: Profile name cannot contain "/" or "\\"'],
+  ['copy', 'dev', 'folder\\bad', 'Error: Profile name cannot contain "/" or "\\"'],
+  ['delete', 'missing', 'Profile "missing" does not exist'],
+])('preserves profile %s error output and exit status', (...fixture) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skillswitch-errors-'));
+  try {
+    const expected = fixture.pop();
+    const result = spawnSync(
+      process.execPath,
+      ['dist/cli.js', '--claude-dir', dir, 'profile', ...fixture],
+      { encoding: 'utf8' },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr.trim()).toBe(expected);
+    expect(fs.readdirSync(dir)).toEqual([]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+it.each(['n\n', 'y\n'])(
+  'preserves confirmation behavior on multiple matching skills with input %j',
+  (input) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skillswitch-confirm-'));
+    try {
+      fs.mkdirSync(path.join(dir, 'skills'));
+      for (const name of ['plan', 'plan-more'])
+        fs.writeFileSync(path.join(dir, 'skills', `${name}.md`), name);
+      const result = spawnSync(
+        process.execPath,
+        ['dist/cli.js', '--claude-dir', dir, 'disable', 'plan'],
+        { encoding: 'utf8', input },
+      );
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('Disable all 2? (y/N)');
+      expect(result.stdout).toContain(input.startsWith('y') ? 'Disabled: plan' : 'Aborted.');
+      expect(fs.existsSync(path.join(dir, 'skills', 'plan.md'))).toBe(!input.startsWith('y'));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+it('uses the environment directory unless an explicit directory overrides it', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'skillswitch-env-'));
+  try {
+    const configured = path.join(home, 'configured');
+    const explicit = path.join(home, 'explicit');
+    for (const [dir, name] of [
+      [configured, 'configured'],
+      [explicit, 'explicit'],
+    ]) {
+      fs.mkdirSync(path.join(dir, 'skills'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'skills', `${name}.md`), name);
+    }
+    const env = { ...process.env, SKILLSWITCH_CLAUDE_DIR: configured };
+    const fallback = spawnSync(process.execPath, ['dist/cli.js', 'list', '--json'], {
+      encoding: 'utf8',
+      env,
+    });
+    expect(fallback.status).toBe(0);
+    expect(JSON.parse(fallback.stdout).standalone[0].name).toBe('configured');
+    const override = spawnSync(
+      process.execPath,
+      ['dist/cli.js', '--claude-dir', explicit, 'list', '--json'],
+      { encoding: 'utf8', env },
+    );
+    expect(override.status).toBe(0);
+    expect(JSON.parse(override.stdout).standalone[0].name).toBe('explicit');
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+it.each([
+  ['codex', '.agents/skills', true],
+  ['gemini', '.gemini/skills', true],
+  ['amp', '.config/amp/skills', true],
+  ['aider', '.aider/skills', false],
+  ['droid', '.factory/droids', false],
+] as const)(
+  'wires the real %s adapter into the built CLI with an isolated home',
+  (cli, location, directory) => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'skillswitch-adapter-cli-'));
+    try {
+      const file = path.join(home, location, directory ? 'ship/SKILL.md' : 'ship.md');
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, '# Ship\nShipping.');
+      const env = {
+        ...process.env,
+        HOME: home,
+        SKILLSWITCH_CLAUDE_DIR: path.join(home, '.claude'),
+      };
+      const run = (...args: string[]) =>
+        spawnSync(process.execPath, ['dist/cli.js', '--for', cli, ...args], {
+          encoding: 'utf8',
+          env,
+        });
+      const listed = run('list', '--json');
+      expect(listed.status).toBe(0);
+      expect(JSON.parse(listed.stdout)).toEqual([
+        expect.objectContaining({ name: 'ship', status: 'active' }),
+      ]);
+      expect(run('disable', 'ship', '--exact').status).toBe(0);
+      expect(fs.existsSync(file)).toBe(false);
+      expect(run('enable', 'ship', '--exact').status).toBe(0);
+      expect(fs.readFileSync(file, 'utf8')).toBe('# Ship\nShipping.');
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  },
+);

@@ -2,30 +2,99 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-
-vi.mock('node:os', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:os')>();
-  return { ...actual, homedir: vi.fn(actual.homedir) };
-});
-let createProgram: typeof import('../src/commands.js').createProgram;
+import { ClaudeAdapter } from '../src/adapters/claude.js';
+import {
+  disableDirSkill,
+  disableFlatSkill,
+  enableDirSkill,
+  enableFlatSkill,
+  scanDirSkills,
+  scanFlatSkills,
+} from '../src/adapters/helpers.js';
+import { CLI_NAMES } from '../src/adapters/index.js';
+import type { CliAdapter } from '../src/adapters/types.js';
+import type { CliRuntime, Terminal } from '../src/cli/context.js';
+import { createInspectionHandlers } from '../src/cli/inspection.js';
+import { createProfileHandlers } from '../src/cli/profiles.js';
+import { createRuntime } from '../src/cli/runtime.js';
+import { createSkillHandlers } from '../src/cli/skills.js';
+import type { CommandHandlers } from '../src/commands.js';
+import { createProgram } from '../src/commands.js';
 
 let dir: string;
 let output: string;
-beforeEach(async () => {
+let errors: string;
+let terminal: Terminal;
+let runtime: CliRuntime;
+let handlers: CommandHandlers;
+// Real filesystem fixtures with injected adapter ports. Adapter-specific
+// discovery and precedence are covered separately in adapters.test.ts.
+function createFixtureAdapter(cli: string): CliAdapter {
+  if (cli === 'claude') return new ClaudeAdapter(dir);
+  const skillsDir = path.join(dir, 'adapters', cli);
+  const directory = ['codex', 'gemini', 'amp'].includes(cli);
+  const displayNames: Record<string, string> = {
+    codex: 'Codex CLI (OpenAI)',
+    gemini: 'Gemini CLI',
+    amp: 'Amp (Sourcegraph)',
+    aider: 'Aider',
+    droid: 'Factory Droid',
+  };
+  return {
+    cliName: cli,
+    displayName: displayNames[cli],
+    skillsDirs: [skillsDir],
+    isInstalled: () => fs.existsSync(skillsDir),
+    scanSkills: () => (directory ? scanDirSkills(skillsDir) : scanFlatSkills(skillsDir)),
+    disableSkill: (name) =>
+      directory ? disableDirSkill(name, skillsDir) : disableFlatSkill(name, skillsDir),
+    enableSkill: (name) =>
+      directory ? enableDirSkill(name, skillsDir) : enableFlatSkill(name, skillsDir),
+  };
+}
+beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skillswitch-commands-'));
   fs.mkdirSync(path.join(dir, 'skills'));
   fs.writeFileSync(path.join(dir, 'skills', 'plan.md'), '# Plan\nPlanning work.');
-  vi.mocked(os.homedir).mockReturnValue(dir);
-  vi.resetModules();
-  ({ createProgram } = await import('../src/commands.js'));
   output = '';
-  vi.spyOn(console, 'log').mockImplementation((...args) => {
-    output += `${args.join(' ')}\n`;
-  });
-  vi.spyOn(process.stdout, 'write').mockImplementation((text) => {
-    output += text;
-    return true;
-  });
+  errors = '';
+  terminal = {
+    log: (message) => {
+      output += `${message}\n`;
+    },
+    write: (message) => {
+      output += message;
+    },
+    warn: (message) => {
+      errors += `${message}\n`;
+    },
+    error: (message) => {
+      errors += `${message}\n`;
+    },
+    writeError: (message) => {
+      errors += message;
+    },
+    confirm: vi.fn(async () => false),
+    exit: (code) => {
+      throw new Error(`CLI exit ${code}`);
+    },
+  };
+  runtime = createRuntime(terminal);
+  const fixtureAdapters = new Map(CLI_NAMES.map((cli) => [cli, createFixtureAdapter(cli)]));
+  runtime.adapters = {
+    get: (cli) => {
+      const adapter = fixtureAdapters.get(cli.toLowerCase());
+      if (!adapter) throw new Error(`Unknown CLI "${cli}"`);
+      return adapter;
+    },
+    all: () => [...fixtureAdapters.values()],
+    aiderConfig: () => '# No active aider skills\n',
+  };
+  handlers = {
+    skills: createSkillHandlers(runtime),
+    profiles: createProfileHandlers(runtime),
+    inspection: createInspectionHandlers(runtime),
+  };
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -33,7 +102,10 @@ afterEach(() => {
 });
 async function run(...args: string[]) {
   output = '';
-  await createProgram().parseAsync(['--claude-dir', dir, ...args], { from: 'user' });
+  await createProgram(handlers, {
+    defaultClaudeDir: dir,
+    cliNames: CLI_NAMES,
+  }).parseAsync(['--claude-dir', dir, ...args], { from: 'user' });
   return output;
 }
 it('lists and searches skills with JSON and status filters', async () => {
@@ -107,8 +179,7 @@ it('handles missing profiles and writes a catalog', async () => {
 it.each(['codex', 'gemini', 'amp', 'aider', 'droid'])(
   'lists, searches, counts, and moves %s skills',
   async (cli) => {
-    const { getAdapter } = await import('../src/adapters/index.js');
-    const adapter = getAdapter(cli);
+    const adapter = runtime.adapters.get(cli);
     const directory = ['codex', 'gemini', 'amp'].includes(cli);
     const file = directory
       ? path.join(adapter.skillsDirs[0], 'ship', 'SKILL.md')
@@ -177,10 +248,6 @@ it('previews plugin changes, blocks and unblocks plugins, and audits duplicates'
 it.each(['', ' ', 'a'.repeat(65), '../outside', 'folder\\name'])(
   'rejects invalid profile name %j without creating a store',
   async (name) => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('CLI exit');
-    });
     await expect(run('profile', 'create', name)).rejects.toThrow('CLI exit');
     expect(fs.existsSync(path.join(dir, 'skillctl'))).toBe(false);
   },
@@ -195,4 +262,144 @@ it('previews profile changes without writes and identifies deleted skills', asyn
   expect(await run('profile', 'use', 'dev', '--dry-run')).toContain('no changes');
   fs.rmSync(path.join(dir, 'skills', 'plan.md'));
   expect(await run('profile', 'validate', 'dev')).toContain('ghost skill');
+});
+
+it.each([
+  ['claude', 'disable', false],
+  ['claude', 'disable', true],
+  ['claude', 'enable', false],
+  ['claude', 'enable', true],
+  ['codex', 'disable', false],
+  ['codex', 'disable', true],
+  ['codex', 'enable', false],
+  ['codex', 'enable', true],
+] as const)(
+  '%s %s confirms multiple matches before any moves (accept=%s)',
+  async (cli, direction, accepted) => {
+    const adapter = runtime.adapters.get(cli);
+    const directory = cli === 'codex';
+    if (cli === 'claude' && direction === 'enable') fs.rmSync(path.join(dir, 'skills', 'plan.md'));
+    const base =
+      direction === 'enable'
+        ? path.join(adapter.skillsDirs[0], '.disabled')
+        : adapter.skillsDirs[0];
+    for (const name of ['plan', 'plan-more']) {
+      const file = directory ? path.join(base, name, 'SKILL.md') : path.join(base, `${name}.md`);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, `# ${name}\nExact bytes.`);
+    }
+    vi.mocked(terminal.confirm).mockResolvedValue(accepted);
+    const result = await run('--for', cli, direction, 'plan');
+    expect(terminal.confirm).toHaveBeenCalledWith(
+      `${direction === 'disable' ? 'Disable' : 'Enable'} all 2? (y/N) `,
+    );
+    expect(result).toContain(
+      accepted ? (direction === 'disable' ? 'Disabled:' : 'Enabled:') : 'Aborted.',
+    );
+    const expectedStatus = accepted
+      ? direction === 'disable'
+        ? 'disabled'
+        : 'active'
+      : direction === 'disable'
+        ? 'active'
+        : 'disabled';
+    expect(adapter.scanSkills().map((skill) => skill.status)).toEqual([
+      expectedStatus,
+      expectedStatus,
+    ]);
+  },
+);
+it('preserves confirmation behavior when disabling and enabling multiple plugins', async () => {
+  const plugins = path.join(dir, 'plugins');
+  fs.mkdirSync(plugins);
+  fs.writeFileSync(
+    path.join(plugins, 'installed_plugins.json'),
+    JSON.stringify({ plugins: { 'tool-one@market': {}, 'tool-two@market': {} } }),
+  );
+  expect(await run('disable', 'tool-', '--plugin')).toContain('Aborted.');
+  expect(fs.existsSync(path.join(plugins, 'blocklist.json'))).toBe(false);
+  vi.mocked(terminal.confirm).mockResolvedValue(true);
+  await run('disable', 'tool-', '--plugin');
+  expect(
+    JSON.parse(fs.readFileSync(path.join(plugins, 'blocklist.json'), 'utf8')).plugins,
+  ).toHaveLength(2);
+  vi.mocked(terminal.confirm).mockClear();
+  await run('enable', 'tool-', '--plugin');
+  expect(terminal.confirm).not.toHaveBeenCalled();
+  expect(JSON.parse(fs.readFileSync(path.join(plugins, 'blocklist.json'), 'utf8')).plugins).toEqual(
+    [],
+  );
+});
+it('passes injected adapter failures through the existing command error boundary', async () => {
+  runtime.adapters.get = vi.fn(() => {
+    throw new Error('adapter unavailable');
+  });
+  await expect(run('--for', 'codex', 'disable', 'plan')).rejects.toThrow('CLI exit 1');
+  expect(errors).toBe('Error: adapter unavailable\n');
+});
+it('uses injected profile file access and keeps read errors on stderr', async () => {
+  runtime.files.readText = vi.fn(() => {
+    throw new Error('cannot read import');
+  });
+  await expect(run('profile', 'import', 'chosen.json')).rejects.toThrow('CLI exit 1');
+  expect(runtime.files.readText).toHaveBeenCalledWith('chosen.json');
+  expect(errors).toBe('Error: cannot read import\n');
+});
+it('uses configured directory defaults and explicit overrides without environment mocks', async () => {
+  const configured = createProgram(handlers, { defaultClaudeDir: dir, cliNames: CLI_NAMES });
+  await configured.parseAsync(['list', '--json'], { from: 'user' });
+  expect(JSON.parse(output).standalone[0].name).toBe('plan');
+  output = '';
+  const emptyDir = path.join(dir, 'empty');
+  await createProgram(handlers, { defaultClaudeDir: dir, cliNames: CLI_NAMES }).parseAsync(
+    ['--claude-dir', emptyDir, 'list', '--json'],
+    { from: 'user' },
+  );
+  expect(JSON.parse(output)).toEqual({ standalone: [], plugins: [] });
+});
+it('rejects unsupported targets using the injected terminal', async () => {
+  await expect(run('--for', 'codex', 'profile', 'list')).rejects.toThrow('CLI exit 1');
+  expect(errors).toBe('Error: profile, catalog and audit currently support only Claude.\n');
+});
+it('preserves forced deletion output for a dangling active profile and leaves its store intact', async () => {
+  const file = path.join(dir, 'skillctl', 'profiles.json');
+  fs.mkdirSync(path.dirname(file));
+  const bytes = JSON.stringify({ active: 'missing', previous: null, profiles: {} });
+  fs.writeFileSync(file, bytes);
+  expect(await run('profile', 'delete', 'missing', '--force')).toBe(
+    'Profile "missing" not found.\n',
+  );
+  expect(fs.readFileSync(file, 'utf8')).toBe(bytes);
+});
+it('counts plugin skills using plugin status while retaining standalone totals', async () => {
+  const plugins = path.join(dir, 'plugins');
+  const skills = path.join(plugins, 'cache', 'market', 'tool', '1.0.0', 'skills');
+  fs.mkdirSync(skills, { recursive: true });
+  fs.writeFileSync(path.join(skills, 'ship.md'), '# Ship\nShipping.');
+  fs.writeFileSync(
+    path.join(plugins, 'installed_plugins.json'),
+    JSON.stringify({ plugins: { 'tool@market': {} } }),
+  );
+  expect(JSON.parse(await run('status', '--json'))).toMatchObject({
+    active: 2,
+    disabled: 0,
+    total: 2,
+  });
+  await run('disable', 'tool@market', '--plugin');
+  expect(JSON.parse(await run('status', '--json'))).toMatchObject({
+    active: 1,
+    disabled: 1,
+    total: 2,
+  });
+});
+
+it('supplies the directory override only for the exact Claude target, preserving target dispatch', async () => {
+  const originalGet = runtime.adapters.get;
+  runtime.adapters.get = vi.fn(originalGet);
+  await run('disable', 'missing');
+  expect(runtime.adapters.get).toHaveBeenLastCalledWith('claude', dir);
+  await run('--for', 'codex', 'disable', 'missing');
+  expect(runtime.adapters.get).toHaveBeenLastCalledWith('codex');
+  await run('--for', 'CLAUDE', 'disable', 'missing');
+  expect(runtime.adapters.get).toHaveBeenLastCalledWith('CLAUDE');
 });
