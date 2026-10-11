@@ -3,7 +3,7 @@
 ## Dev setup
 
 ```bash
-git clone https://github.com/nikolas-sapa/skillswitch.git
+git clone https://github.com/mingchuno/skillswitch.git
 cd skillswitch
 corepack enable
 pnpm install --frozen-lockfile
@@ -92,3 +92,11 @@ Look at `src/adapters/claude.ts` if the target CLI has a plugin/blocklist system
 ## Reporting bugs / requesting features
 
 Use the GitHub issue templates. Security issues go to niksapa150@gmail.com instead (see `SECURITY.md`), not a public issue.
+
+## Releases
+
+Use Conventional Commits (`feat:`, `fix:`, `feat!:` or `BREAKING CHANGE:`).
+Release-please maintains a release PR with the version and changelog; merging
+it creates the GitHub release and, when enabled, publishes to npm. Before 1.0,
+features and breaking changes bump the minor version; fixes bump the patch.
+See [the release runbook](docs/releasing.md) for setup, first publication, and retries.

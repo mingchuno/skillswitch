@@ -1,5 +1,5 @@
 {
-  "name": "skillswitch",
+  "name": "@mingchuno/skillswitch",
   "version": "0.2.0",
   "description": "Manage AI CLI skills across Claude Code, Gemini CLI, Codex CLI, Aider, Amp, and Factory Droid — profiles, disable/enable, catalog generation",
   "type": "module",
@@ -19,7 +19,9 @@
     "check:fix": "biome check --write .",
     "typecheck": "tsc --noEmit",
     "test:coverage": "vitest run --coverage",
-    "test:ci": "vitest run --coverage --reporter=default --reporter=junit --outputFile.junit=reports/junit.xml"
+    "test:ci": "vitest run --coverage --reporter=default --reporter=junit --outputFile.junit=reports/junit.xml",
+    "prepack": "pnpm build",
+    "verify": "pnpm check && pnpm typecheck && pnpm build && pnpm test:coverage"
   },
   "dependencies": {
     "commander": "^12.1.0",
@@ -60,5 +62,9 @@
     "onlyBuiltDependencies": [
       "esbuild"
     ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mingchuno/skillswitch.git"
   }
 }

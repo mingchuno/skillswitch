@@ -1,8 +1,8 @@
 # skillswitch
 
-[![npm version](https://img.shields.io/npm/v/skillswitch?style=flat-square&color=F3F2EE&labelColor=0B0B0D)](https://www.npmjs.com/package/skillswitch)
+[![npm version](https://img.shields.io/npm/v/@mingchuno/skillswitch?style=flat-square&color=F3F2EE&labelColor=0B0B0D)](https://www.npmjs.com/package/@mingchuno/skillswitch)
 [![license](https://img.shields.io/badge/license-MIT-F3F2EE?style=flat-square&labelColor=0B0B0D)](LICENSE)
-[![node](https://img.shields.io/node/v/skillswitch?style=flat-square&color=F3F2EE&labelColor=0B0B0D)](package.json)
+[![node](https://img.shields.io/node/v/@mingchuno/skillswitch?style=flat-square&color=F3F2EE&labelColor=0B0B0D)](package.json)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-F3F2EE?style=flat-square&labelColor=0B0B0D)](CONTRIBUTING.md)
 
 Manage AI CLI skills across Claude Code, Gemini CLI, Codex CLI, Aider, Amp, and Factory Droid — profiles, disable/enable, catalog generation.
@@ -10,7 +10,7 @@ Manage AI CLI skills across Claude Code, Gemini CLI, Codex CLI, Aider, Amp, and 
 ## Quick start
 
 ```bash
-pnpm add -g skillswitch
+pnpm add -g @mingchuno/skillswitch
 skillswitch detect                 # see which CLIs are installed
 skillswitch status                 # skills active vs disabled (Claude Code by default)
 skillswitch disable ads            # disable all skills matching "ads"
@@ -60,9 +60,9 @@ Claude Code injects the name and description of every installed skill into every
 ## Install
 
 ```bash
-pnpm add -g skillswitch
+pnpm add -g @mingchuno/skillswitch
 # or run without installing:
-pnpm dlx skillswitch <command>
+pnpm dlx @mingchuno/skillswitch <command>
 ```
 
 ## Supported CLIs
@@ -214,4 +214,4 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-[npm](https://www.npmjs.com/package/skillswitch) · [GitHub](https://github.com/nikolas-sapa/skillswitch)
+[npm](https://www.npmjs.com/package/@mingchuno/skillswitch) · [GitHub](https://github.com/mingchuno/skillswitch)
