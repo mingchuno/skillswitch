@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import type { CommandContext } from './cli/context.js';
 import type { createInspectionHandlers } from './cli/inspection.js';
 import type { createProfileHandlers } from './cli/profiles.js';
@@ -69,6 +69,9 @@ export function createProgram(handlers: CommandHandlers, config: CommandConfig):
     .description('Disable a skill (substring match) or a plugin (--plugin)')
     .option('--plugin', 'Treat <name> as a full plugin ID (name@source)')
     .option('--exact', 'Require exact name match instead of substring match')
+    .addOption(
+      new Option('--glob', 'Match the whole name using * and ? wildcards').conflicts('exact'),
+    )
     .option('--dry-run', 'Preview without making changes')
     .option('--quiet', 'Suppress output except errors')
     .action((name, opts) => handlers.skills.disable(context(), name, opts));
@@ -79,6 +82,9 @@ export function createProgram(handlers: CommandHandlers, config: CommandConfig):
     .description('Enable a skill (substring match) or a plugin (--plugin)')
     .option('--plugin', 'Treat <name> as a full plugin ID (name@source)')
     .option('--exact', 'Require exact name match instead of substring match')
+    .addOption(
+      new Option('--glob', 'Match the whole name using * and ? wildcards').conflicts('exact'),
+    )
     .option('--dry-run', 'Preview without making changes')
     .option('--quiet', 'Suppress output except errors')
     .action((name, opts) => handlers.skills.enable(context(), name, opts));

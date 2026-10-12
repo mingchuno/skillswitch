@@ -43,6 +43,7 @@ export interface JsonOptions {
 export interface MutationOptions {
   plugin?: boolean;
   exact?: boolean;
+  glob?: boolean;
   dryRun?: boolean;
   quiet?: boolean;
 }

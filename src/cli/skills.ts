@@ -1,6 +1,7 @@
 import type { CliAdapter } from '../adapters/types.js';
 import { blockPlugin, unblockPlugin } from '../blocklist.js';
 import { countClaudeSkills, countSkills, searchSkills } from '../inventory.js';
+import { createNameMatcher } from '../name-matcher.js';
 import { readProfileStore } from '../profiles.js';
 import { scanPlugins, scanStandaloneSkills } from '../scanner.js';
 import type {
@@ -164,10 +165,6 @@ export function createSkillHandlers(runtime: Pick<CliRuntime, 'terminal' | 'adap
     apply(adapter: CliAdapter, name: string): void;
   }
 
-  function matchesName(candidate: string, selection: { name: string; exact?: boolean }): boolean {
-    return selection.exact ? candidate === selection.name : candidate.includes(selection.name);
-  }
-
   async function changeSkills(
     context: CommandContext,
     selection: { name: string; opts: MutationOptions },
@@ -178,13 +175,10 @@ export function createSkillHandlers(runtime: Pick<CliRuntime, 'terminal' | 'adap
       context.target === 'claude'
         ? adapters.get(context.target, context.claudeDir)
         : adapters.get(context.target);
+    const matchesName = createNameMatcher(name, opts);
     const matches = adapter
       .scanSkills()
-      .filter(
-        (skill) =>
-          matchesName(skill.name, { name, exact: opts.exact }) &&
-          skill.status === transition.fromStatus,
-      );
+      .filter((skill) => matchesName(skill.name) && skill.status === transition.fromStatus);
     if (!matches.length) {
       const label = context.target === 'claude' ? '' : `${adapter.displayName} `;
       terminal.log(`No ${transition.fromStatus} ${label}skills matching "${name}".`);
@@ -216,9 +210,8 @@ export function createSkillHandlers(runtime: Pick<CliRuntime, 'terminal' | 'adap
   }
 
   function matchingPlugins(context: CommandContext, name: string, opts: MutationOptions) {
-    return scanPlugins(context.claudeDir).filter((plugin) =>
-      matchesName(plugin.id, { name, exact: opts.exact }),
-    );
+    const matchesName = createNameMatcher(name, opts);
+    return scanPlugins(context.claudeDir).filter((plugin) => matchesName(plugin.id));
   }
 
   async function disablePlugins(
@@ -259,6 +252,13 @@ export function createSkillHandlers(runtime: Pick<CliRuntime, 'terminal' | 'adap
     if (!matched.length) {
       terminal.log(`No plugins matching "${name}".`);
       return;
+    }
+    if (opts.glob && matched.length > 1) {
+      terminal.log(`Matches: ${matched.map((plugin) => plugin.id).join(', ')}`);
+      if (!(await terminal.confirm(`Enable all ${matched.length} plugins? (y/N) `))) {
+        terminal.log('Aborted.');
+        return;
+      }
     }
     for (const plugin of matched) {
       if (opts.dryRun) {

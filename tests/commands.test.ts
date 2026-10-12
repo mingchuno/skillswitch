@@ -522,3 +522,106 @@ it('Codex individual toggle previews reject blocked and parked skills without wr
   await expect(run('--for', 'codex', 'enable', 'old', '--dry-run')).rejects.toThrow('CLI exit');
   expect(fs.existsSync(parked)).toBe(true);
 });
+
+it('uses whole-name glob matching to disable and restore skills', async () => {
+  for (const name of ['plan-more', 'replan-more']) {
+    fs.writeFileSync(path.join(dir, 'skills', `${name}.md`), `# ${name}`);
+  }
+  expect(await run('disable', 'plan-*', '--glob', '--dry-run')).toContain(
+    'Would disable: plan-more',
+  );
+  expect(fs.existsSync(path.join(dir, 'skills', 'plan-more.md'))).toBe(true);
+  await run('disable', 'plan-*', '--glob');
+  expect(
+    JSON.parse(await run('list', '--disabled', '--json')).standalone.map(
+      (s: { name: string }) => s.name,
+    ),
+  ).toEqual(['plan-more']);
+  expect(await run('disable', 'plan-*', '--glob')).toContain('No active skills');
+  await run('enable', 'plan-????', '--glob');
+  expect(JSON.parse(await run('list', '--disabled', '--json')).standalone).toEqual([]);
+  expect(fs.existsSync(path.join(dir, 'skills', 'replan-more.md'))).toBe(true);
+});
+
+it.each(['disable', 'enable'])(
+  'confirms and cancels multiple plugin glob matches on %s',
+  async (direction) => {
+    const plugins = path.join(dir, 'plugins');
+    fs.mkdirSync(plugins);
+    fs.writeFileSync(
+      path.join(plugins, 'installed_plugins.json'),
+      JSON.stringify({
+        plugins: { 'tool-one@market': {}, 'tool-two@market': {}, 'other@elsewhere': {} },
+      }),
+    );
+    vi.mocked(terminal.confirm).mockResolvedValue(true);
+    await run('disable', 'tool-', '--plugin');
+    vi.mocked(terminal.confirm).mockClear().mockResolvedValue(false);
+    expect(await run(direction, '*@market', '--plugin', '--glob')).toContain('Aborted.');
+    expect(terminal.confirm).toHaveBeenCalledWith(
+      `${direction === 'disable' ? 'Disable' : 'Enable'} all 2 plugins? (y/N) `,
+    );
+    expect(
+      JSON.parse(fs.readFileSync(path.join(plugins, 'blocklist.json'), 'utf8')).plugins,
+    ).toHaveLength(2);
+    vi.mocked(terminal.confirm).mockResolvedValue(true);
+    expect(await run(direction, '*@market', '--plugin', '--glob', '--dry-run')).toContain(
+      '[dry-run]',
+    );
+    expect(
+      JSON.parse(fs.readFileSync(path.join(plugins, 'blocklist.json'), 'utf8')).plugins,
+    ).toHaveLength(2);
+    await run(direction, '*@market', '--plugin', '--glob');
+    expect(
+      JSON.parse(fs.readFileSync(path.join(plugins, 'blocklist.json'), 'utf8')).plugins,
+    ).toHaveLength(direction === 'enable' ? 0 : 2);
+  },
+);
+
+it.each([
+  ['plan', [], 'plan'],
+  ['pla?', ['--glob'], 'plan'],
+  ['*la*', ['--glob'], 'plan'],
+  ['**plan**', ['--glob'], 'plan'],
+  ['plan', ['--glob'], 'plan'],
+  ['PLAN*', ['--glob'], null],
+  ['pla', ['--glob'], null],
+  ['plan?', ['--glob'], null],
+  ['plan-*', [], null],
+  ['plan-*', ['--exact'], null],
+  ['tool.[x]+(v){1}$^', ['--glob'], 'tool.[x]+(v){1}$^'],
+  ['tool.?*', ['--glob'], 'tool.[x]+(v){1}$^'],
+] as const)(
+  'selects %s with flags %j without interpreting literal punctuation',
+  async (pattern, flags, expected) => {
+    fs.writeFileSync(path.join(dir, 'skills', 'tool.[x]+(v){1}$^.md'), '# Tool');
+    const result = await run('disable', pattern, ...flags, '--dry-run');
+    if (expected) expect(result).toContain(`[dry-run] Would disable: ${expected}\n`);
+    else expect(result).toContain('No active skills');
+  },
+);
+
+it.each(CLI_NAMES)('supports glob enable and disable for %s', async (cli) => {
+  const adapter = runtime.adapters.get(cli);
+  const directory = ['gemini', 'amp', 'codex'].includes(cli);
+  const file = directory
+    ? path.join(adapter.skillsDirs[0], 'ship-one', 'SKILL.md')
+    : path.join(adapter.skillsDirs[0], 'ship-one.md');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, '# Ship');
+  expect(await run('--for', cli, 'disable', 'ship-*', '--glob', '--quiet')).toBe('');
+  expect(adapter.scanSkills().find((skill) => skill.name === 'ship-one')?.status).toBe('disabled');
+  expect(await run('--for', cli, 'enable', 'ship-???', '--glob', '--quiet')).toBe('');
+  expect(adapter.scanSkills().find((skill) => skill.name === 'ship-one')?.status).toBe('active');
+});
+
+it('cancels multiple skill glob matches before mutations', async () => {
+  fs.writeFileSync(path.join(dir, 'skills', 'plan-more.md'), '# More');
+  expect(await run('disable', 'plan*', '--glob')).toContain('Aborted.');
+  expect(JSON.parse(await run('list', '--disabled', '--json')).standalone).toEqual([]);
+});
+
+it('requires glob matches to consume the entire name including a trailing newline', async () => {
+  fs.writeFileSync(path.join(dir, 'skills', 'line\n.md'), '# Line');
+  expect(await run('disable', 'line', '--glob', '--dry-run')).toContain('No active skills');
+});

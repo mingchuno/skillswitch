@@ -117,6 +117,28 @@ skillswitch --for aider list
 skillswitch aider-config                  # print the read: block for ~/.aider.conf.yml
 ```
 
+## Matching skills and plugins
+
+`enable` and `disable` use case-sensitive substring matching by default.
+Use `--exact` for a literal full-name match, or `--glob` for a full-name
+pattern: `*` matches zero or more characters and `?` matches one character.
+All other characters are literal; character classes, braces, and extglobs
+are not supported. `--glob` and `--exact` cannot be combined.
+
+```bash
+skillswitch disable research                     # names containing research
+skillswitch disable research --exact             # only research
+skillswitch disable 'research-*' --glob --dry-run # preview names starting research-
+skillswitch enable 'research-????' --glob         # four characters after research-
+skillswitch enable '*@market' --plugin --glob     # Claude plugin IDs ending @market
+```
+
+Quote patterns to prevent shell expansion. Glob selection works for skills
+on every supported target and for Claude plugin IDs with `--plugin`.
+Multiple skill matches require confirmation. Multiple plugin glob matches
+also require confirmation for both enable and disable. `--dry-run` previews
+changes without writing; it still prompts when multiple matches require confirmation.
+
 ## Typical workflow
 
 ```bash

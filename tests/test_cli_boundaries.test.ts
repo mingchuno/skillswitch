@@ -201,3 +201,40 @@ it.each([
     }
   },
 );
+
+it.each(['enable', 'disable'])(
+  'rejects conflicting match modes for %s before mutation',
+  (command) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skillswitch-glob-conflict-'));
+    try {
+      const result = spawnSync(
+        process.execPath,
+        ['dist/cli.js', '--claude-dir', dir, command, 'plan*', '--glob', '--exact'],
+        { encoding: 'utf8' },
+      );
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("cannot be used with option '--exact'");
+      expect(fs.readdirSync(dir)).toEqual([]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+it('passes an intact glob pattern to the built CLI', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skillswitch-glob-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'skills'));
+    fs.writeFileSync(path.join(dir, 'skills', 'plan-more.md'), '# More');
+    const result = spawnSync(
+      process.execPath,
+      ['dist/cli.js', '--claude-dir', dir, 'disable', 'plan-*', '--glob', '--dry-run'],
+      { encoding: 'utf8' },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[dry-run] Would disable: plan-more');
+    expect(fs.existsSync(path.join(dir, 'skills', 'plan-more.md'))).toBe(true);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
