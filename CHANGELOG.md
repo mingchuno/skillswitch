@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/mingchuno/skillswitch/compare/v0.3.0...v0.4.0) (2026-10-12)
+
+
+### Features
+
+* Add glob selection for enable and disable ([087ff17](https://github.com/mingchuno/skillswitch/commit/087ff17b3a22027aeeeecc801787de7058e30e0a))
+
 ## [0.3.0](https://github.com/mingchuno/skillswitch/compare/v0.2.0...v0.3.0) (2026-10-11)
 
 
