@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/mingchuno/skillswitch/compare/v0.4.0...v0.5.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* Gemini is no longer a supported target. Migrate skills and use --for agy.
+
+### Features
+
+* Replace Gemini support with Antigravity CLI ([22e77d9](https://github.com/mingchuno/skillswitch/commit/22e77d9787073e84dd71de49379bf0b32885c795))
+
 ## [0.4.0](https://github.com/mingchuno/skillswitch/compare/v0.3.0...v0.4.0) (2026-10-12)
 
 
