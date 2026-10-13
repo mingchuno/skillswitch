@@ -49,7 +49,7 @@ src/
   adapters/          # one file per supported CLI
     types.ts         # CliAdapter interface all adapters implement
     helpers.ts        # shared dir-scanning / enable-disable helpers
-    claude.ts, gemini.ts, codex.ts, aider.ts, amp.ts, factory.ts
+    claude.ts, antigravity.ts, codex.ts, aider.ts, amp.ts, factory.ts
     index.ts          # adapter registry (getAdapter, getAllAdapters)
   scanner.ts          # skill discovery
   disable.ts           # enable/disable logic
@@ -74,12 +74,12 @@ This is the most common contribution. Steps:
    - `isInstalled()` — detect the CLI (e.g. check for its config dir)
    - `scanSkills()` — return `AdapterSkill[]`
    - `disableSkill(name)` / `enableSkill(name)`
-2. Reuse `scanDirSkills`, `disableDirSkill`, `enableDirSkill`, `findSkillDir` from `src/adapters/helpers.ts` if the CLI stores skills as one directory per skill (most do) — see `src/adapters/gemini.ts` for an example. Codex uses its native TOML configuration instead of moving folders.
+2. Reuse `scanDirSkills`, `disableDirSkill`, `enableDirSkill`, `findSkillDir` from `src/adapters/helpers.ts` if the CLI stores skills as one directory per skill (most do) — see `src/adapters/antigravity.ts` for an example. Antigravity adds duplicate-name checks and preserves relative skill symlink targets when parking them. Codex uses its native TOML configuration instead of moving folders.
 3. Register the adapter in `src/adapters/index.ts` (`ADAPTERS` map).
 4. Add `tests/<cli>.test.ts` covering scan, disable, enable, and `isInstalled` against a temp directory.
 5. Add the CLI to the "Supported CLIs" table in `README.md`.
 
-Look at `src/adapters/claude.ts` if the target CLI has a plugin/blocklist system in addition to standalone skill files; otherwise `gemini.ts` is a simpler template.
+Look at `src/adapters/claude.ts` if the target CLI has a plugin/blocklist system in addition to standalone skill files; otherwise `amp.ts` demonstrates directory scanning and moves.
 
 ## PR expectations
 

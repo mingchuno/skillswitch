@@ -74,7 +74,7 @@ export function enableFlatSkill(name: string, dir: string): void {
   moveSkill(name, dir, false, true, `Skill "${name}" is not disabled`);
 }
 
-// ── Directory-based skills (e.g. Gemini, Codex, Amp): <name>/SKILL.md ────────
+// ── Directory-based skills (e.g. Antigravity, Codex, Amp): <name>/SKILL.md ────────
 
 export function scanDirSkills(dir: string, group?: string): AdapterSkill[] {
   const skills: AdapterSkill[] = [];

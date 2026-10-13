@@ -37,7 +37,7 @@ it.each([['profile', 'list'], ['catalog'], ['audit']])(
           '--claude-dir',
           dir,
           '--for',
-          command[0] === 'profile' ? 'gemini' : 'codex',
+          command[0] === 'profile' ? 'agy' : 'codex',
           ...command,
         ],
         { encoding: 'utf8' },
@@ -164,7 +164,8 @@ it('uses the environment directory unless an explicit directory overrides it', (
 });
 it.each([
   ['codex', '.agents/skills', true],
-  ['gemini', '.gemini/skills', true],
+  ['agy', '.gemini/config/skills', true],
+  ['agy', '.gemini/antigravity-cli/skills', true],
   ['amp', '.config/amp/skills', true],
   ['aider', '.aider/skills', false],
   ['droid', '.factory/droids', false],
@@ -192,6 +193,8 @@ it.each([
       expect(JSON.parse(listed.stdout)).toEqual([
         expect.objectContaining({ name: 'ship', status: 'active' }),
       ]);
+      expect(run('disable', 'ship', '--exact', '--dry-run').status).toBe(0);
+      expect(fs.existsSync(file)).toBe(true);
       expect(run('disable', 'ship', '--exact').status).toBe(0);
       expect(fs.existsSync(file)).toBe(cli === 'codex');
       expect(run('enable', 'ship', '--exact').status).toBe(0);
@@ -237,4 +240,12 @@ it('passes an intact glob pattern to the built CLI', () => {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+it('rejects Gemini invocations with migration guidance instead of retargeting them', () => {
+  const result = spawnSync(process.execPath, ['dist/cli.js', '--for', 'gemini', 'list'], {
+    encoding: 'utf8',
+  });
+  expect(result.status).not.toBe(0);
+  expect(result.stderr).toContain('Gemini support was removed. Use --for agy');
 });

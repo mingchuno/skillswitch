@@ -23,7 +23,7 @@ export function createProgram(handlers: CommandHandlers, config: CommandConfig):
   program
     .name('skillswitch')
     .description(
-      `Manage AI CLI skills — Claude Code, Gemini CLI, Codex CLI, Factory Droid, Amp, Aider`,
+      `Manage AI CLI skills — Claude Code, Antigravity CLI, Codex CLI, Factory Droid, Amp, Aider`,
     )
     .version('0.4.0') // x-release-please-version
     .option('--claude-dir <path>', 'Override the Claude config directory (default: ~/.claude)')

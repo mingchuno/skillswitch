@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { AntigravityAdapter } from '../src/adapters/antigravity.js';
 import { ClaudeAdapter } from '../src/adapters/claude.js';
 import { CodexAdapter } from '../src/adapters/codex.js';
 import {
@@ -32,12 +33,12 @@ let handlers: CommandHandlers;
 // discovery and precedence are covered separately in adapters.test.ts.
 function createFixtureAdapter(cli: string): CliAdapter {
   if (cli === 'claude') return new ClaudeAdapter(dir);
+  if (cli === 'agy') return new AntigravityAdapter(dir, '');
   const skillsDir = path.join(dir, 'adapters', cli);
   if (cli === 'codex') return new CodexAdapter(path.join(dir, 'codex'), skillsDir);
-  const directory = ['gemini', 'amp'].includes(cli);
+  const directory = cli === 'amp';
   const displayNames: Record<string, string> = {
     codex: 'Codex CLI (OpenAI)',
-    gemini: 'Gemini CLI',
     amp: 'Amp (Sourcegraph)',
     aider: 'Aider',
     droid: 'Factory Droid',
@@ -178,11 +179,11 @@ it('handles missing profiles and writes a catalog', async () => {
   expect(fs.readFileSync(path.join(dir, 'SKILLS.md'), 'utf8')).toContain('plan');
 });
 
-it.each(['codex', 'gemini', 'amp', 'aider', 'droid'])(
+it.each(['codex', 'agy', 'amp', 'aider', 'droid'])(
   'lists, searches, counts, and moves %s skills',
   async (cli) => {
     const adapter = runtime.adapters.get(cli);
-    const directory = ['codex', 'gemini', 'amp'].includes(cli);
+    const directory = ['codex', 'agy', 'amp'].includes(cli);
     const file = directory
       ? path.join(adapter.skillsDirs[0], 'ship', 'SKILL.md')
       : path.join(adapter.skillsDirs[0], 'ship.md');
@@ -364,7 +365,7 @@ it('uses configured directory defaults and explicit overrides without environmen
   expect(JSON.parse(output)).toEqual({ standalone: [], plugins: [] });
 });
 it('rejects unsupported targets using the injected terminal', async () => {
-  await expect(run('--for', 'gemini', 'profile', 'list')).rejects.toThrow('CLI exit 1');
+  await expect(run('--for', 'agy', 'profile', 'list')).rejects.toThrow('CLI exit 1');
   expect(errors).toBe(
     'Error: catalog and audit support only Claude; profiles support Claude and Codex.\n',
   );
@@ -603,7 +604,7 @@ it.each([
 
 it.each(CLI_NAMES)('supports glob enable and disable for %s', async (cli) => {
   const adapter = runtime.adapters.get(cli);
-  const directory = ['gemini', 'amp', 'codex'].includes(cli);
+  const directory = ['agy', 'amp', 'codex'].includes(cli);
   const file = directory
     ? path.join(adapter.skillsDirs[0], 'ship-one', 'SKILL.md')
     : path.join(adapter.skillsDirs[0], 'ship-one.md');
@@ -624,4 +625,21 @@ it('cancels multiple skill glob matches before mutations', async () => {
 it('requires glob matches to consume the entire name including a trailing newline', async () => {
   fs.writeFileSync(path.join(dir, 'skills', 'line\n.md'), '# Line');
   expect(await run('disable', 'line', '--glob', '--dry-run')).toContain('No active skills');
+});
+
+it('requires confirmation for multiple Antigravity glob matches and leaves dry-run read-only', async () => {
+  const adapter = runtime.adapters.get('agy');
+  for (const name of ['ship-one', 'ship-two']) {
+    const file = path.join(adapter.skillsDirs[0], name, 'SKILL.md');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, '# Ship');
+  }
+  expect(await run('--for', 'agy', 'disable', 'ship-*', '--glob')).toContain('Aborted.');
+  expect(adapter.scanSkills().every((skill) => skill.status === 'active')).toBe(true);
+  vi.mocked(terminal.confirm).mockResolvedValue(true);
+  expect(await run('--for', 'agy', 'disable', 'ship-*', '--glob', '--dry-run')).toContain(
+    'Would disable',
+  );
+  expect(adapter.scanSkills().every((skill) => skill.status === 'active')).toBe(true);
+  expect(fs.existsSync(path.join(adapter.skillsDirs[0], '.disabled'))).toBe(false);
 });

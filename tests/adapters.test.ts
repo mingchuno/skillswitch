@@ -36,14 +36,14 @@ function writeSkill(dir: string, name: string, directory: boolean, description =
   return file;
 }
 
-describe.each(['claude', 'codex', 'gemini', 'amp', 'aider', 'droid'])('%s adapter', (cli) => {
+describe.each(['claude', 'codex', 'agy', 'amp', 'aider', 'droid'])('%s adapter', (cli) => {
   it('detects installation and round trips skill contents', async () => {
     const adapter = await adapterFor(cli);
-    expect(adapter.isInstalled()).toBe(false);
-    const directory = ['codex', 'gemini', 'amp'].includes(cli);
+    if (cli !== 'agy') expect(adapter.isInstalled()).toBe(false);
+    const directory = ['codex', 'agy', 'amp'].includes(cli);
     const file = writeSkill(adapter.skillsDirs[0], 'plan', directory);
     if (cli === 'codex') fs.mkdirSync(path.join(home, '.codex'));
-    expect(adapter.isInstalled()).toBe(true);
+    if (cli !== 'agy') expect(adapter.isInstalled()).toBe(true);
     expect(adapter.scanSkills()).toEqual([
       expect.objectContaining({ name: 'plan', status: 'active' }),
     ]);
@@ -63,23 +63,20 @@ describe.each(['claude', 'codex', 'gemini', 'amp', 'aider', 'droid'])('%s adapte
   });
 });
 
-it.each(['gemini', 'amp'])(
-  '%s prefers local skills and finds shared skills for moves',
-  async (cli) => {
-    const adapter = await adapterFor(cli);
-    writeSkill(adapter.skillsDirs[0], 'plan', true, 'Local.');
-    writeSkill(adapter.skillsDirs[1], 'plan', true, 'Shared duplicate.');
-    const shared = writeSkill(adapter.skillsDirs[1], 'ship', true, 'Shared.');
-    expect(adapter.scanSkills()).toEqual([
-      { name: 'plan', status: 'active', description: 'Local.' },
-      { name: 'ship', status: 'active', description: 'Shared.', group: 'shared' },
-    ]);
-    adapter.disableSkill('ship');
-    expect(fs.existsSync(shared)).toBe(false);
-    adapter.enableSkill('ship');
-    expect(fs.existsSync(shared)).toBe(true);
-  },
-);
+it.each(['amp'])('%s prefers local skills and finds shared skills for moves', async (cli) => {
+  const adapter = await adapterFor(cli);
+  writeSkill(adapter.skillsDirs[0], 'plan', true, 'Local.');
+  writeSkill(adapter.skillsDirs[1], 'plan', true, 'Shared duplicate.');
+  const shared = writeSkill(adapter.skillsDirs[1], 'ship', true, 'Shared.');
+  expect(adapter.scanSkills()).toEqual([
+    { name: 'plan', status: 'active', description: 'Local.' },
+    { name: 'ship', status: 'active', description: 'Shared.', group: 'shared' },
+  ]);
+  adapter.disableSkill('ship');
+  expect(fs.existsSync(shared)).toBe(false);
+  adapter.enableSkill('ship');
+  expect(fs.existsSync(shared)).toBe(true);
+});
 it('Factory scans and moves commands as well as droids', async () => {
   const adapter = await adapterFor('droid');
   writeSkill(adapter.skillsDirs[0], 'plan', false);
@@ -298,4 +295,131 @@ it('Codex preserves existing config permissions under a stricter process umask',
   } finally {
     process.umask(previous);
   }
+});
+
+it('Antigravity manages global standalone skills and restores parked bundles', async () => {
+  const adapter = await adapterFor('agy');
+  expect(adapter.skillsDirs).toEqual([
+    path.join(home, '.gemini', 'config', 'skills'),
+    path.join(home, '.gemini', 'antigravity-cli', 'skills'),
+  ]);
+  const file = writeSkill(adapter.skillsDirs[0], 'plan', true);
+  const shared = writeSkill(path.join(home, '.agents', 'skills'), 'shared', true);
+  const legacy = writeSkill(path.join(home, '.gemini', 'skills'), 'legacy', true);
+  adapter.disableSkill('plan');
+  expect(adapter.scanSkills()).toEqual([
+    { name: 'plan', status: 'disabled', description: 'Planning.' },
+  ]);
+  expect(fs.existsSync(file)).toBe(false);
+  expect([shared, legacy].every((file) => fs.existsSync(file))).toBe(true);
+  adapter.enableSkill('plan');
+  expect(fs.readFileSync(file, 'utf8')).toContain('Planning.');
+});
+
+it('Antigravity detects an executable on PATH without relying on leftover config directories', async () => {
+  const { AntigravityAdapter } = await import('../src/adapters/antigravity.js');
+  const bin = path.join(home, 'bin');
+  const adapter = new AntigravityAdapter(home, bin);
+  fs.mkdirSync(path.join(home, '.gemini', 'config'), { recursive: true });
+  expect(adapter.isInstalled()).toBe(false);
+  fs.mkdirSync(bin);
+  const executable = path.join(bin, process.platform === 'win32' ? 'agy.exe' : 'agy');
+  fs.mkdirSync(executable);
+  expect(adapter.isInstalled()).toBe(false);
+  fs.rmdirSync(executable);
+  fs.writeFileSync(executable, '');
+  if (process.platform !== 'win32') expect(adapter.isInstalled()).toBe(false);
+  fs.chmodSync(executable, 0o755);
+  expect(adapter.isInstalled()).toBe(true);
+});
+
+it('rejects the removed Gemini target with explicit migration guidance', async () => {
+  const { getAdapter } = await import('../src/adapters/index.js');
+  expect(() => getAdapter('GEMINI')).toThrow(/Gemini support was removed.*--for agy/);
+});
+
+it('Antigravity manages CLI-root skills and refuses ambiguous names across global roots', async () => {
+  const adapter = await adapterFor('agy');
+  const file = writeSkill(adapter.skillsDirs[1], 'ship', true);
+  adapter.disableSkill('ship');
+  expect(adapter.scanSkills()[0]).toMatchObject({ name: 'ship', status: 'disabled', group: 'cli' });
+  adapter.enableSkill('ship');
+  const duplicate = writeSkill(adapter.skillsDirs[0], 'ship', true);
+  expect(() => adapter.scanSkills()).toThrow(/ambiguous.*ship/i);
+  expect(() => adapter.disableSkill('ship')).toThrow(/ambiguous.*ship/i);
+  expect(fs.existsSync(file)).toBe(true);
+  expect(fs.existsSync(duplicate)).toBe(true);
+});
+
+it('Antigravity preserves symlink targets and refuses to overwrite parked copies', async () => {
+  const adapter = await adapterFor('agy');
+  const target = writeSkill(path.join(home, 'outside'), 'linked', true);
+  fs.mkdirSync(adapter.skillsDirs[0], { recursive: true });
+  const link = path.join(adapter.skillsDirs[0], 'linked');
+  fs.symlinkSync(path.dirname(target), link);
+  adapter.disableSkill('linked');
+  expect(fs.existsSync(target)).toBe(true);
+  expect(
+    fs.lstatSync(path.join(adapter.skillsDirs[0], '.disabled', 'linked')).isSymbolicLink(),
+  ).toBe(true);
+  adapter.enableSkill('linked');
+  expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
+  expect(fs.readFileSync(target, 'utf8')).toContain('Planning.');
+  writeSkill(path.join(adapter.skillsDirs[0], '.disabled'), 'linked', true, 'Keep parked.');
+  expect(() => adapter.disableSkill('linked')).toThrow(/ambiguous/i);
+  expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
+});
+
+it('Antigravity preserves relative skill symlink targets across disable and enable', async () => {
+  const adapter = await adapterFor('agy');
+  const target = writeSkill(path.join(home, 'outside'), 'target', true);
+  fs.mkdirSync(adapter.skillsDirs[0], { recursive: true });
+  const link = path.join(adapter.skillsDirs[0], 'linked');
+  const relativeTarget = path.relative(path.dirname(link), path.dirname(target));
+  fs.symlinkSync(relativeTarget, link);
+  adapter.disableSkill('linked');
+  expect(adapter.scanSkills()).toEqual([
+    expect.objectContaining({ name: 'linked', status: 'disabled' }),
+  ]);
+  const parked = path.join(adapter.skillsDirs[0], '.disabled', 'linked');
+  expect(fs.readFileSync(path.join(parked, 'SKILL.md'), 'utf8')).toBe(
+    fs.readFileSync(target, 'utf8'),
+  );
+  adapter.enableSkill('linked');
+  expect(fs.readlinkSync(link)).toBe(relativeTarget);
+  expect(fs.realpathSync(link)).toBe(fs.realpathSync(path.dirname(target)));
+});
+
+it('Antigravity leaves a relative link intact if removing the source fails', async () => {
+  const adapter = await adapterFor('agy');
+  const target = writeSkill(path.join(home, 'outside'), 'target', true);
+  fs.mkdirSync(adapter.skillsDirs[0], { recursive: true });
+  const link = path.join(adapter.skillsDirs[0], 'linked');
+  const relativeTarget = path.relative(path.dirname(link), path.dirname(target));
+  fs.symlinkSync(relativeTarget, link);
+  vi.spyOn(fs, 'unlinkSync').mockImplementationOnce(() => {
+    throw new Error('Source unlink failed');
+  });
+  expect(() => adapter.disableSkill('linked')).toThrow('Source unlink failed');
+  expect(fs.readlinkSync(link)).toBe(relativeTarget);
+  expect(fs.existsSync(path.join(adapter.skillsDirs[0], '.disabled', 'linked'))).toBe(false);
+  expect(adapter.scanSkills()[0].status).toBe('active');
+});
+
+it('Antigravity preserves relative paths that traverse another directory symlink', async () => {
+  const adapter = await adapterFor('agy');
+  const target = writeSkill(path.join(home, 'outside'), 'target', true);
+  const bridgeTarget = path.join(home, 'outside', 'bridge');
+  fs.mkdirSync(bridgeTarget);
+  fs.mkdirSync(adapter.skillsDirs[0], { recursive: true });
+  fs.symlinkSync(bridgeTarget, path.join(adapter.skillsDirs[0], 'bridge'));
+  const link = path.join(adapter.skillsDirs[0], 'linked');
+  fs.symlinkSync('bridge/../target', link);
+  adapter.disableSkill('linked');
+  const parked = path.join(adapter.skillsDirs[0], '.disabled', 'linked');
+  expect(fs.readFileSync(path.join(parked, 'SKILL.md'), 'utf8')).toBe(
+    fs.readFileSync(target, 'utf8'),
+  );
+  adapter.enableSkill('linked');
+  expect(fs.readlinkSync(link)).toBe('bridge/../target');
 });

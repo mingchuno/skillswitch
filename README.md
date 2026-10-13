@@ -5,7 +5,7 @@
 [![node](https://img.shields.io/node/v/@mingchuno/skillswitch?style=flat-square&color=F3F2EE&labelColor=0B0B0D)](package.json)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-F3F2EE?style=flat-square&labelColor=0B0B0D)](CONTRIBUTING.md)
 
-Manage AI CLI skills across Claude Code, Gemini CLI, Codex CLI, Aider, Amp, and Factory Droid — profiles, disable/enable, catalog generation.
+Manage AI CLI skills across Claude Code, Antigravity CLI, Codex CLI, Aider, Amp, and Factory Droid — profiles, disable/enable, catalog generation.
 
 ## Quick start
 
@@ -24,7 +24,7 @@ Running 100+ Claude Code skills? Your context window is leaking. Claude Code inj
 
 ## What is Skillswitch?
 
-**Skillswitch is a command-line skill manager for AI coding CLIs** — Claude Code, Gemini CLI, Codex CLI, Aider, Amp, and Factory Droid. It disables the skills you're not using so they stop consuming your context window, and lets you snapshot enable/disable sets as named profiles you switch between per project.
+**Skillswitch is a command-line skill manager for AI coding CLIs** — Claude Code, Antigravity CLI, Codex CLI, Aider, Amp, and Factory Droid. It disables the skills you're not using so they stop consuming your context window, and lets you snapshot enable/disable sets as named profiles you switch between per project.
 
 ### Why Skillswitch
 
@@ -49,7 +49,7 @@ Claude Code injects the name and description of every installed skill into every
 
 **Does it send my data anywhere?** No telemetry, no auth, no network. It only reads and updates local files.
 
-**Which CLIs does it support?** Claude Code, Gemini CLI, Codex CLI, Aider, Amp (Sourcegraph), and Factory Droid. Default target is Claude Code; use `--for <cli>` for the rest.
+**Which CLIs does it support?** Claude Code, Antigravity CLI, Codex CLI, Aider, Amp (Sourcegraph), and Factory Droid. Default target is Claude Code; use `--for <cli>` for the rest.
 
 **Profiles support Claude Code and Codex app / CLI.** Catalog and audit support Claude Code only. List, search, status, disable and enable support all listed targets.
 
@@ -70,7 +70,7 @@ pnpm dlx @mingchuno/skillswitch <command>
 | CLI | Flag | Skill location |
 |---|---|---|
 | Claude Code | `--for claude` (default) | `~/.claude/skills/` + plugins |
-| Gemini CLI | `--for gemini` | `~/.gemini/skills/` + `~/.agents/skills/` |
+| Antigravity CLI | `--for agy` | `~/.gemini/config/skills/` + `~/.gemini/antigravity-cli/skills/` |
 | Codex app / CLI | `--for codex` | `~/.agents/skills/` |
 | Aider | `--for aider` | `~/.aider/skills/` (managed externally) |
 | Amp (Sourcegraph) | `--for amp` | `~/.config/amp/skills/` + `~/.agents/skills/` |
@@ -109,7 +109,7 @@ skillswitch catalog                       # generate ~/.claude/SKILLS.md
 skillswitch audit                         # find duplicates and stale disabled skills
 
 # Other CLIs — use --for <cli>
-skillswitch --for gemini list
+skillswitch --for agy list
 skillswitch --for codex disable tdd
 skillswitch --for amp search coding
 skillswitch --for droid status
@@ -158,14 +158,50 @@ skillswitch profile use dev               # 48 skills active
 skillswitch profile use full              # back to 450
 
 # Manage skills for other CLIs
-skillswitch --for gemini list
-skillswitch --for gemini disable research
+skillswitch --for agy list
+skillswitch --for agy disable research
 skillswitch --for codex disable tdd
 
 # Discover what you have
 skillswitch catalog                       # generates ~/.claude/SKILLS.md
 # Then in Claude: @~/.claude/SKILLS.md
 ```
+
+## Antigravity CLI
+
+```bash
+skillswitch --for agy list
+skillswitch --for agy disable research --exact --dry-run
+skillswitch --for agy disable research --exact
+skillswitch --for agy enable research --exact
+# In agy: /skills reload (or start a new session).
+```
+
+Manages immediate `<folder>/SKILL.md` bundles in both global roots listed above,
+including skill-folder symlinks. Disable moves a bundle or link into that root's
+`.disabled/`; enable restores it without moving a symlink's target. Duplicate
+folder names across active/parked copies or global roots are rejected; resolve
+those copies before running commands. `detect` checks for an executable `agy` on
+PATH, not leftover Gemini configuration directories.
+
+Project `.agents/skills`, shared `~/.agents/skills`, built-in skills, plugins,
+and extra locations registered through `skills.json` are outside this managed
+inventory. Counts describe these two folders, not agy's entire effective
+inventory. Other Antigravity surfaces that share a managed folder can also be
+affected by moves. Reload does not remove instructions already loaded into an
+existing conversation.
+
+Both roots and `.disabled/` exclusion were verified with `agy` 1.3.4 using
+read-only `agy -p /skills --output-format json` discovery checks. Antigravity's bundled customization guide and
+[public location documentation](https://antigravity.google/docs/skills/) can differ by version; verify discovery after upgrades.
+
+Gemini support has been replaced: change `--for gemini` to `--for agy` after
+migrating your skills. SkillSwitch does not automatically convert or move legacy
+Gemini installations. Use Google's [migration guide](https://antigravity.google/docs/cli/gcli-migration/)
+for onboarding and extension conversion. Retain legacy active and `.disabled`
+bundles until migration is verified; do not overwrite same-named destination
+skills or blindly merge shared directories. Existing parked skills can be copied
+as whole bundles into a managed global root's `.disabled/` to retain their state.
 
 ## Codex profiles
 
