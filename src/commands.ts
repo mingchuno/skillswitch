@@ -25,7 +25,7 @@ export function createProgram(handlers: CommandHandlers, config: CommandConfig):
     .description(
       `Manage AI CLI skills — Claude Code, Antigravity CLI, Codex CLI, GitHub Copilot CLI, Factory Droid, Amp, Aider`,
     )
-    .version('0.5.0') // x-release-please-version
+    .version('0.6.0') // x-release-please-version
     .option('--claude-dir <path>', 'Override the Claude config directory (default: ~/.claude)')
     .option('--for <cli>', `Target CLI: ${config.cliNames.join(' | ')} (default: claude)`);
 
