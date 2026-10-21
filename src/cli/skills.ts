@@ -207,6 +207,9 @@ export function createSkillHandlers(runtime: Pick<CliRuntime, 'terminal' | 'adap
     if (context.target === 'codex' && !opts.dryRun && !opts.quiet) {
       terminal.log('Restart Codex app / CLI to apply configuration changes.');
     }
+    if (context.target === 'copilot' && !opts.dryRun && !opts.quiet) {
+      terminal.log('Run /skills reload in Copilot CLI to apply changes.');
+    }
   }
 
   function matchingPlugins(context: CommandContext, name: string, opts: MutationOptions) {

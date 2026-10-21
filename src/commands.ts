@@ -23,7 +23,7 @@ export function createProgram(handlers: CommandHandlers, config: CommandConfig):
   program
     .name('skillswitch')
     .description(
-      `Manage AI CLI skills — Claude Code, Antigravity CLI, Codex CLI, Factory Droid, Amp, Aider`,
+      `Manage AI CLI skills — Claude Code, Antigravity CLI, Codex CLI, GitHub Copilot CLI, Factory Droid, Amp, Aider`,
     )
     .version('0.5.0') // x-release-please-version
     .option('--claude-dir <path>', 'Override the Claude config directory (default: ~/.claude)')
@@ -33,7 +33,8 @@ export function createProgram(handlers: CommandHandlers, config: CommandConfig):
     if (
       actionCommand.name() === 'catalog' ||
       actionCommand.name() === 'audit' ||
-      (actionCommand.parent?.name() === 'profile' && context().target !== 'codex')
+      (actionCommand.parent?.name() === 'profile' &&
+        !['codex', 'copilot'].includes(context().target))
     ) {
       handlers.inspection.requireClaude(context());
     }

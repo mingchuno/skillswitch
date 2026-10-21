@@ -1,7 +1,7 @@
 {
   "name": "@mingchuno/skillswitch",
   "version": "0.5.0",
-  "description": "Manage AI CLI skills across Claude Code, Antigravity CLI, Codex CLI, Aider, Amp, and Factory Droid — profiles, disable/enable, catalog generation",
+  "description": "Manage AI CLI skills across Claude Code, Antigravity CLI, Codex CLI, GitHub Copilot CLI, Aider, Amp, and Factory Droid — profiles, disable/enable, catalog generation",
   "type": "module",
   "bin": {
     "skillswitch": "./dist/cli.js"
@@ -48,6 +48,7 @@
     "antigravity",
     "agy",
     "codex",
+    "copilot",
     "aider",
     "amp",
     "skills",

@@ -164,6 +164,7 @@ it('uses the environment directory unless an explicit directory overrides it', (
 });
 it.each([
   ['codex', '.agents/skills', true],
+  ['copilot', '.copilot/skills', true],
   ['agy', '.gemini/config/skills', true],
   ['agy', '.gemini/antigravity-cli/skills', true],
   ['amp', '.config/amp/skills', true],

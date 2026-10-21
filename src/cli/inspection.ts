@@ -86,7 +86,7 @@ export function createInspectionHandlers(runtime: Pick<CliRuntime, 'terminal' | 
   function requireClaude(context: CommandContext): void {
     if (context.target === 'claude') return;
     terminal.writeError(
-      'Error: catalog and audit support only Claude; profiles support Claude and Codex.\n',
+      'Error: catalog and audit support only Claude; profiles support Claude, Codex and Copilot.\n',
     );
     terminal.exit(1);
   }
