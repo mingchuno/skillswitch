@@ -7,6 +7,7 @@ import { AmpAdapter } from './amp.js';
 import { AntigravityAdapter } from './antigravity.js';
 import { ClaudeAdapter } from './claude.js';
 import { CodexAdapter } from './codex.js';
+import { CopilotAdapter } from './copilot.js';
 import { FactoryAdapter } from './factory.js';
 import type { CliAdapter } from './types.js';
 
@@ -17,6 +18,7 @@ const ADAPTERS: Record<string, (claudeDir?: string) => CliAdapter> = {
   claude: (claudeDir) => new ClaudeAdapter(claudeDir ?? path.join(os.homedir(), '.claude')),
   agy: () => new AntigravityAdapter(),
   codex: () => new CodexAdapter(),
+  copilot: () => new CopilotAdapter(),
   droid: () => new FactoryAdapter(),
   amp: () => new AmpAdapter(),
   aider: () => new AiderAdapter(),

@@ -49,7 +49,7 @@ src/
   adapters/          # one file per supported CLI
     types.ts         # CliAdapter interface all adapters implement
     helpers.ts        # shared dir-scanning / enable-disable helpers
-    claude.ts, antigravity.ts, codex.ts, aider.ts, amp.ts, factory.ts
+    claude.ts, antigravity.ts, codex.ts, copilot.ts, aider.ts, amp.ts, factory.ts
     index.ts          # adapter registry (getAdapter, getAllAdapters)
   scanner.ts          # skill discovery
   disable.ts           # enable/disable logic

@@ -85,6 +85,8 @@ export function createProfileHandlers(
         terminal.log(`Activated "${name}".`);
         if (context.target === 'codex')
           terminal.log('Restart Codex app / CLI to apply configuration changes.');
+        if (context.target === 'copilot')
+          terminal.log('Run /skills reload in Copilot CLI to apply changes.');
         if (result.enabled.length) terminal.log(`  Enabled : ${result.enabled.join(', ')}`);
         if (result.disabled.length) terminal.log(`  Disabled: ${result.disabled.join(', ')}`);
         if (result.pluginsBlocked.length)

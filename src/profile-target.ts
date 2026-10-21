@@ -23,7 +23,7 @@ export interface ProfileTarget {
 export function profileTarget(adapter: CliAdapter, claudeDir: string): ProfileTarget {
   if (adapter.profiles) return adapter.profiles;
   if (adapter.cliName !== 'claude')
-    throw new Error('Profiles currently support only Claude and Codex.');
+    throw new Error('Profiles currently support only Claude, Codex and Copilot.');
   return {
     directory: claudeDir,
     snapshot: () => ({

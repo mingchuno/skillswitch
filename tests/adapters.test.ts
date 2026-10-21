@@ -36,32 +36,35 @@ function writeSkill(dir: string, name: string, directory: boolean, description =
   return file;
 }
 
-describe.each(['claude', 'codex', 'agy', 'amp', 'aider', 'droid'])('%s adapter', (cli) => {
-  it('detects installation and round trips skill contents', async () => {
-    const adapter = await adapterFor(cli);
-    if (cli !== 'agy') expect(adapter.isInstalled()).toBe(false);
-    const directory = ['codex', 'agy', 'amp'].includes(cli);
-    const file = writeSkill(adapter.skillsDirs[0], 'plan', directory);
-    if (cli === 'codex') fs.mkdirSync(path.join(home, '.codex'));
-    if (cli !== 'agy') expect(adapter.isInstalled()).toBe(true);
-    expect(adapter.scanSkills()).toEqual([
-      expect.objectContaining({ name: 'plan', status: 'active' }),
-    ]);
-    const original = fs.readFileSync(file, 'utf8');
-    adapter.disableSkill('plan');
-    expect(fs.existsSync(file)).toBe(cli === 'codex');
-    expect(adapter.scanSkills()[0].status).toBe('disabled');
-    adapter.enableSkill('plan');
-    expect(fs.readFileSync(file, 'utf8')).toBe(original);
-    expect(adapter.scanSkills()[0].status).toBe('active');
-  });
-  it('returns an empty inventory and rejects missing skills', async () => {
-    const adapter = await adapterFor(cli);
-    expect(adapter.scanSkills()).toEqual([]);
-    expect(() => adapter.disableSkill('missing')).toThrow(/not found/);
-    expect(() => adapter.enableSkill('missing')).toThrow(/not found|not.*disabled/);
-  });
-});
+describe.each(['claude', 'codex', 'copilot', 'agy', 'amp', 'aider', 'droid'])(
+  '%s adapter',
+  (cli) => {
+    it('detects installation and round trips skill contents', async () => {
+      const adapter = await adapterFor(cli);
+      if (cli !== 'agy') expect(adapter.isInstalled()).toBe(false);
+      const directory = ['codex', 'copilot', 'agy', 'amp'].includes(cli);
+      const file = writeSkill(adapter.skillsDirs[0], 'plan', directory);
+      if (cli === 'codex') fs.mkdirSync(path.join(home, '.codex'));
+      if (cli !== 'agy') expect(adapter.isInstalled()).toBe(true);
+      expect(adapter.scanSkills()).toEqual([
+        expect.objectContaining({ name: 'plan', status: 'active' }),
+      ]);
+      const original = fs.readFileSync(file, 'utf8');
+      adapter.disableSkill('plan');
+      expect(fs.existsSync(file)).toBe(cli === 'codex');
+      expect(adapter.scanSkills()[0].status).toBe('disabled');
+      adapter.enableSkill('plan');
+      expect(fs.readFileSync(file, 'utf8')).toBe(original);
+      expect(adapter.scanSkills()[0].status).toBe('active');
+    });
+    it('returns an empty inventory and rejects missing skills', async () => {
+      const adapter = await adapterFor(cli);
+      expect(adapter.scanSkills()).toEqual([]);
+      expect(() => adapter.disableSkill('missing')).toThrow(/not found/);
+      expect(() => adapter.enableSkill('missing')).toThrow(/not found|not.*disabled/);
+    });
+  },
+);
 
 it.each(['amp'])('%s prefers local skills and finds shared skills for moves', async (cli) => {
   const adapter = await adapterFor(cli);
@@ -76,6 +79,30 @@ it.each(['amp'])('%s prefers local skills and finds shared skills for moves', as
   expect(fs.existsSync(shared)).toBe(false);
   adapter.enableSkill('ship');
   expect(fs.existsSync(shared)).toBe(true);
+});
+it('Copilot manages only personal skills and leaves the shared root untouched', async () => {
+  const adapter = await adapterFor('copilot');
+  expect(adapter.skillsDirs).toEqual([path.join(home, '.copilot', 'skills')]);
+  writeSkill(adapter.skillsDirs[0], 'plan', true);
+  const shared = writeSkill(path.join(home, '.agents', 'skills'), 'ship', true);
+  expect(adapter.scanSkills().map((skill) => skill.name)).toEqual(['plan']);
+  expect(() => adapter.disableSkill('ship')).toThrow(/not found/);
+  expect(fs.existsSync(shared)).toBe(true);
+});
+it('Copilot validates every move before changing any skill', async () => {
+  const adapter = await adapterFor('copilot');
+  if (!('setSkillsEnabled' in adapter) || typeof adapter.setSkillsEnabled !== 'function')
+    throw new Error('Missing Copilot batch toggles');
+  const plan = writeSkill(adapter.skillsDirs[0], 'plan', true);
+  writeSkill(adapter.skillsDirs[0], 'ship', true);
+  writeSkill(path.join(adapter.skillsDirs[0], '.disabled'), 'ship', true);
+  const changes = new Map([
+    ['plan', false],
+    ['ship', false],
+  ]);
+  expect(() => adapter.validateSkillChanges?.(changes)).toThrow();
+  expect(() => adapter.setSkillsEnabled(changes)).toThrow();
+  expect(fs.existsSync(plan)).toBe(true);
 });
 it('Factory scans and moves commands as well as droids', async () => {
   const adapter = await adapterFor('droid');

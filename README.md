@@ -5,7 +5,7 @@
 [![node](https://img.shields.io/node/v/@mingchuno/skillswitch?style=flat-square&color=F3F2EE&labelColor=0B0B0D)](package.json)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-F3F2EE?style=flat-square&labelColor=0B0B0D)](CONTRIBUTING.md)
 
-Manage AI CLI skills across Claude Code, Antigravity CLI, Codex CLI, Aider, Amp, and Factory Droid — profiles, disable/enable, catalog generation.
+Manage AI CLI skills across Claude Code, Antigravity CLI, Codex CLI, GitHub Copilot CLI, Aider, Amp, and Factory Droid — profiles, disable/enable, catalog generation.
 
 ## Quick start
 
@@ -24,7 +24,7 @@ Running 100+ Claude Code skills? Your context window is leaking. Claude Code inj
 
 ## What is Skillswitch?
 
-**Skillswitch is a command-line skill manager for AI coding CLIs** — Claude Code, Antigravity CLI, Codex CLI, Aider, Amp, and Factory Droid. It disables the skills you're not using so they stop consuming your context window, and lets you snapshot enable/disable sets as named profiles you switch between per project.
+**Skillswitch is a command-line skill manager for AI coding CLIs** — Claude Code, Antigravity CLI, Codex CLI, GitHub Copilot CLI, Aider, Amp, and Factory Droid. It disables the skills you're not using so they stop consuming your context window, and lets you snapshot enable/disable sets as named profiles you switch between per project.
 
 ### Why Skillswitch
 
@@ -34,7 +34,7 @@ Claude Code injects the name and description of every installed skill into every
 
 - **vs. deleting skills manually** — deleting is destructive and you lose the skill. Skillswitch moves skills to `.disabled/` and restores them on `enable`. Nothing is lost.
 - **vs. editing config by hand** — hand-editing `blocklist.json` or moving files works until you want a *different* set per project. Skillswitch stores profiles and switches the whole set in one command with a `--dry-run` preview.
-- **vs. one-CLI tools** — most helpers target Claude Code only. Skillswitch uses the same commands across six CLIs via `--for <cli>`.
+- **vs. one-CLI tools** — most helpers target Claude Code only. Skillswitch uses the same commands across seven CLIs via `--for <cli>`.
 
 ### When to use Skillswitch
 
@@ -49,9 +49,9 @@ Claude Code injects the name and description of every installed skill into every
 
 **Does it send my data anywhere?** No telemetry, no auth, no network. It only reads and updates local files.
 
-**Which CLIs does it support?** Claude Code, Antigravity CLI, Codex CLI, Aider, Amp (Sourcegraph), and Factory Droid. Default target is Claude Code; use `--for <cli>` for the rest.
+**Which CLIs does it support?** Claude Code, Antigravity CLI, Codex CLI, GitHub Copilot CLI, Aider, Amp (Sourcegraph), and Factory Droid. Default target is Claude Code; use `--for <cli>` for the rest.
 
-**Profiles support Claude Code and Codex app / CLI.** Catalog and audit support Claude Code only. List, search, status, disable and enable support all listed targets.
+**Profiles support Claude Code, Codex app / CLI and GitHub Copilot CLI.** Catalog and audit support Claude Code only. List, search, status, disable and enable support all listed targets.
 
 **How do profiles work?** `skillswitch profile create dev` snapshots your current enabled set. `skillswitch profile use dev` activates it. `profile diff` and `--dry-run` show what changes before it happens.
 
@@ -72,6 +72,7 @@ pnpm dlx @mingchuno/skillswitch <command>
 | Claude Code | `--for claude` (default) | `~/.claude/skills/` + plugins |
 | Antigravity CLI | `--for agy` | `~/.gemini/config/skills/` + `~/.gemini/antigravity-cli/skills/` |
 | Codex app / CLI | `--for codex` | `~/.agents/skills/` |
+| GitHub Copilot CLI | `--for copilot` | `~/.copilot/skills/` |
 | Aider | `--for aider` | `~/.aider/skills/` (managed externally) |
 | Amp (Sourcegraph) | `--for amp` | `~/.config/amp/skills/` + `~/.agents/skills/` |
 | Factory Droid | `--for droid` | `~/.factory/droids/` + `~/.factory/commands/` |
@@ -111,6 +112,7 @@ skillswitch audit                         # find duplicates and stale disabled s
 # Other CLIs — use --for <cli>
 skillswitch --for agy list
 skillswitch --for codex disable tdd
+skillswitch --for copilot disable tdd
 skillswitch --for amp search coding
 skillswitch --for droid status
 skillswitch --for aider list
@@ -239,13 +241,31 @@ Skills parked by older versions in `~/.agents/skills/.disabled/` are still liste
 as disabled. Restore those folders to `~/.agents/skills/` before enabling them;
 Codex operations no longer move folders.
 
+## Copilot profiles
+
+```bash
+skillswitch --for copilot profile create full
+skillswitch --for copilot disable research --exact
+skillswitch --for copilot profile create dev
+skillswitch --for copilot profile use full --dry-run
+skillswitch --for copilot profile use full
+# Run /skills reload in an open Copilot CLI session, or start a new one.
+```
+
+Copilot profiles manage personal skill folders in `~/.copilot/skills` by moving
+them to `~/.copilot/skills/.disabled/`. Copilot also reads `~/.agents/skills`,
+but that root is shared with Codex and Amp, so skillswitch leaves it alone:
+those skills are not listed, toggled or saved in Copilot profiles. Repository
+(`.github/skills`) and plugin skills are also outside this scope. Every move is
+checked before any folder changes; missing profile skills prevent activation.
+
 ## How it works
 
 - **Standalone skills** (`~/.claude/skills/*.md`): disabled by moving to `.disabled/` subdirectory — always reversible, nothing deleted
 - **Plugin skills** (`~/.claude/plugins/`): disabled by writing to Claude Code's native `blocklist.json`
 - **Codex**: path-specific `[[skills.config]]` entries in `~/.codex/config.toml`; shared skill folders stay in place
 - **Other CLIs**: skill files moved to `.disabled/` subdirectory inside their skills directory
-- **Profiles** stored independently in `~/.claude/skillctl/profiles.json` and `$CODEX_HOME/skillctl/profiles.json` (default `~/.codex/skillctl/profiles.json`)
+- **Profiles** stored independently in `~/.claude/skillctl/profiles.json`, `$CODEX_HOME/skillctl/profiles.json` (default `~/.codex/skillctl/profiles.json`) and `~/.copilot/skillctl/profiles.json`
 
 Moves reject existing destinations, invalid names and symlinked `.disabled/`
 directories. Existing copies remain untouched. Corrupt or invalid profile and

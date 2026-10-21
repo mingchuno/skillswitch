@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AntigravityAdapter } from '../src/adapters/antigravity.js';
 import { ClaudeAdapter } from '../src/adapters/claude.js';
 import { CodexAdapter } from '../src/adapters/codex.js';
+import { CopilotAdapter } from '../src/adapters/copilot.js';
 import {
   disableDirSkill,
   disableFlatSkill,
@@ -36,6 +37,7 @@ function createFixtureAdapter(cli: string): CliAdapter {
   if (cli === 'agy') return new AntigravityAdapter(dir, '');
   const skillsDir = path.join(dir, 'adapters', cli);
   if (cli === 'codex') return new CodexAdapter(path.join(dir, 'codex'), skillsDir);
+  if (cli === 'copilot') return new CopilotAdapter(path.join(dir, 'copilot'));
   const directory = cli === 'amp';
   const displayNames: Record<string, string> = {
     codex: 'Codex CLI (OpenAI)',
@@ -179,11 +181,11 @@ it('handles missing profiles and writes a catalog', async () => {
   expect(fs.readFileSync(path.join(dir, 'SKILLS.md'), 'utf8')).toContain('plan');
 });
 
-it.each(['codex', 'agy', 'amp', 'aider', 'droid'])(
+it.each(['codex', 'copilot', 'agy', 'amp', 'aider', 'droid'])(
   'lists, searches, counts, and moves %s skills',
   async (cli) => {
     const adapter = runtime.adapters.get(cli);
-    const directory = ['codex', 'agy', 'amp'].includes(cli);
+    const directory = ['codex', 'copilot', 'agy', 'amp'].includes(cli);
     const file = directory
       ? path.join(adapter.skillsDirs[0], 'ship', 'SKILL.md')
       : path.join(adapter.skillsDirs[0], 'ship.md');
@@ -218,7 +220,7 @@ it.each(['codex', 'agy', 'amp', 'aider', 'droid'])(
   },
 );
 it('detects installed CLIs and prints Aider configuration from the isolated home', async () => {
-  expect(JSON.parse(await run('detect', '--json'))).toHaveLength(6);
+  expect(JSON.parse(await run('detect', '--json'))).toHaveLength(7);
   expect(await run('detect')).toContain('not found');
   expect(await run('aider-config')).toContain('No active aider skills');
 });
@@ -276,11 +278,13 @@ it.each([
   ['codex', 'disable', true],
   ['codex', 'enable', false],
   ['codex', 'enable', true],
+  ['copilot', 'disable', true],
+  ['copilot', 'enable', true],
 ] as const)(
   '%s %s confirms multiple matches before any moves (accept=%s)',
   async (cli, direction, accepted) => {
     const adapter = runtime.adapters.get(cli);
-    const directory = cli === 'codex';
+    const directory = cli !== 'claude';
     if (cli === 'claude' && direction === 'enable') fs.rmSync(path.join(dir, 'skills', 'plan.md'));
     const base =
       direction === 'enable' && cli !== 'codex'
@@ -367,7 +371,7 @@ it('uses configured directory defaults and explicit overrides without environmen
 it('rejects unsupported targets using the injected terminal', async () => {
   await expect(run('--for', 'agy', 'profile', 'list')).rejects.toThrow('CLI exit 1');
   expect(errors).toBe(
-    'Error: catalog and audit support only Claude; profiles support Claude and Codex.\n',
+    'Error: catalog and audit support only Claude; profiles support Claude, Codex and Copilot.\n',
   );
 });
 it('preserves forced deletion output for a dangling active profile and leaves its store intact', async () => {
@@ -450,6 +454,59 @@ it('Codex profiles snapshot native state, preview without writes, and switch ind
     disabled: 0,
   });
   expect(JSON.parse(await run('--for', 'codex', 'profile', 'list', '--json')).previous).toBe('dev');
+});
+
+it('Copilot profiles snapshot personal skills, preview without moves, and switch independently of Claude', async () => {
+  const adapter = runtime.adapters.get('copilot');
+  const files = ['plan', 'ship'].map((name) => {
+    const file = path.join(adapter.skillsDirs[0], name, 'SKILL.md');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, `---\nname: ${name}\ndescription: ${name} work\n---\n`);
+    return file;
+  });
+  await run('profile', 'create', 'dev');
+  await run('--for', 'copilot', 'profile', 'create', 'full');
+  expect(await run('--for', 'copilot', 'disable', 'ship', '--exact')).toContain('/skills reload');
+  expect(await run('--for', 'copilot', 'profile', 'create', 'dev')).toContain('1 skills');
+  expect(fs.existsSync(path.join(dir, 'copilot', 'skillctl', 'profiles.json'))).toBe(true);
+  await run('--for', 'copilot', 'enable', 'ship', '--exact');
+  expect(await run('--for', 'copilot', 'profile', 'use', 'dev', '--dry-run')).toContain(
+    'Disable : ship',
+  );
+  expect(fs.existsSync(files[1])).toBe(true);
+  expect(await run('--for', 'copilot', 'profile', 'use', 'dev')).toContain('/skills reload');
+  expect(fs.existsSync(files[1])).toBe(false);
+  expect(JSON.parse(await run('--for', 'copilot', 'status', '--json'))).toMatchObject({
+    activeProfile: 'dev',
+    active: 1,
+    disabled: 1,
+  });
+  expect(await run('--for', 'copilot', 'profile', 'diff', 'dev')).toContain('no changes');
+  expect(JSON.parse(await run('profile', 'export', 'dev')).skills).toEqual(['plan']);
+  await run('--for', 'copilot', 'profile', 'use', 'full');
+  expect(files.every((file) => fs.existsSync(file))).toBe(true);
+  expect(JSON.parse(await run('--for', 'copilot', 'profile', 'list', '--json')).previous).toBe(
+    'dev',
+  );
+});
+
+it('Copilot rejects plugin profiles and missing skills without moving files', async () => {
+  const adapter = runtime.adapters.get('copilot');
+  const file = path.join(adapter.skillsDirs[0], 'plan', 'SKILL.md');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, '# Plan');
+  const exported = path.join(dir, 'copilot-profile.json');
+  fs.writeFileSync(exported, JSON.stringify({ name: 'dev', skills: ['plan'], plugins: ['x@y'] }));
+  await expect(run('--for', 'copilot', 'profile', 'import', exported)).rejects.toThrow('CLI exit');
+  expect(errors).toContain('Copilot profiles do not support plugins');
+  await run('--for', 'copilot', 'profile', 'create', 'dev');
+  fs.rmSync(path.dirname(file), { recursive: true });
+  const other = path.join(adapter.skillsDirs[0], 'ship', 'SKILL.md');
+  fs.mkdirSync(path.dirname(other), { recursive: true });
+  fs.writeFileSync(other, '# Ship');
+  expect(await run('--for', 'copilot', 'profile', 'validate', 'dev')).toContain('ghost');
+  await expect(run('--for', 'copilot', 'profile', 'use', 'dev')).rejects.toThrow('CLI exit');
+  expect(fs.existsSync(other)).toBe(true);
 });
 
 it('Codex supports the profile lifecycle and leaves stores unchanged on invalid imports and missing skills', async () => {
@@ -604,7 +661,7 @@ it.each([
 
 it.each(CLI_NAMES)('supports glob enable and disable for %s', async (cli) => {
   const adapter = runtime.adapters.get(cli);
-  const directory = ['agy', 'amp', 'codex'].includes(cli);
+  const directory = ['agy', 'amp', 'codex', 'copilot'].includes(cli);
   const file = directory
     ? path.join(adapter.skillsDirs[0], 'ship-one', 'SKILL.md')
     : path.join(adapter.skillsDirs[0], 'ship-one.md');
