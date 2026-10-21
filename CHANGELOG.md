@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/mingchuno/skillswitch/compare/v0.5.0...v0.6.0) (2026-10-21)
+
+
+### Features
+
+* Add GitHub Copilot CLI support with profiles ([#4](https://github.com/mingchuno/skillswitch/issues/4)) ([c9802ea](https://github.com/mingchuno/skillswitch/commit/c9802ea19a943384e26880993a1cf03726af8823))
+
 ## [0.5.0](https://github.com/mingchuno/skillswitch/compare/v0.4.0...v0.5.0) (2026-10-13)
 
 
